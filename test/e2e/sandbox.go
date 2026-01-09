@@ -458,17 +458,6 @@ var _ = Describe("Sandbox", func() {
 										},
 									},
 								},
-								Volumes: []corev1.Volume{
-									{
-										Name: "www",
-										VolumeSource: corev1.VolumeSource{
-											PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-												ClaimName: "www-" + sandbox.Name,
-												ReadOnly:  false,
-											},
-										},
-									},
-								},
 							},
 						},
 						VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
@@ -521,7 +510,7 @@ var _ = Describe("Sandbox", func() {
 				Namespace: sandboxWithPVC.Namespace,
 			}, pod)).To(Succeed())
 
-			Expect(len(pod.Spec.Volumes)).To(BeNumerically(">", 0))
+			Expect(pod.Spec.Volumes).ToNot(BeEmpty())
 			foundVolume := false
 			for _, volume := range pod.Spec.Volumes {
 				if volume.Name == "www" && volume.PersistentVolumeClaim != nil {
@@ -532,7 +521,7 @@ var _ = Describe("Sandbox", func() {
 			}
 			Expect(foundVolume).To(BeTrue())
 
-			Expect(len(pod.Spec.Containers)).To(BeNumerically(">", 0))
+			Expect(pod.Spec.Containers).ToNot(BeEmpty())
 			container := pod.Spec.Containers[0]
 			foundMount := false
 			for _, mount := range container.VolumeMounts {
@@ -606,17 +595,6 @@ var _ = Describe("Sandbox", func() {
 										},
 									},
 								},
-								Volumes: []corev1.Volume{
-									{
-										Name: "www",
-										VolumeSource: corev1.VolumeSource{
-											PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-												ClaimName: "", // Will be set by controller
-												ReadOnly:  false,
-											},
-										},
-									},
-								},
 							},
 						},
 						VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
@@ -656,7 +634,7 @@ var _ = Describe("Sandbox", func() {
 					&client.ListOptions{
 						Namespace: namespace,
 						LabelSelector: labels.SelectorFromSet(map[string]string{
-							"sandboxset": "true",
+							agentsv1alpha1.LabelSandboxPool: sandboxSetWithPVC.Name,
 						}),
 					})
 				if err != nil {

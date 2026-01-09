@@ -146,17 +146,6 @@ var _ = Describe("SandboxSet", func() {
 										},
 									},
 								},
-								Volumes: []corev1.Volume{
-									{
-										Name: "www",
-										VolumeSource: corev1.VolumeSource{
-											PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-												ClaimName: "", // Will be set by controller
-												ReadOnly:  false,
-											},
-										},
-									},
-								},
 							},
 						},
 						VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
@@ -197,7 +186,7 @@ var _ = Describe("SandboxSet", func() {
 					&client.ListOptions{
 						Namespace: namespace,
 						LabelSelector: labels.SelectorFromSet(map[string]string{
-							"sandboxset": "true",
+							agentsv1alpha1.LabelSandboxPool: sandboxSetWithPVC.Name, // 使用正确的标签选择器
 						}),
 					})
 				if err != nil {
@@ -222,6 +211,38 @@ var _ = Describe("SandboxSet", func() {
 					}
 					return pvc.Status.Phase
 				}, time.Second*60, time.Millisecond*500).Should(Equal(corev1.ClaimBound))
+
+				By("Verifying the pod has correct volume configuration")
+				pod := &corev1.Pod{}
+				Eventually(func() error {
+					return k8sClient.Get(ctx, types.NamespacedName{
+						Name:      sandboxInstance.Name,
+						Namespace: namespace,
+					}, pod)
+				}, time.Second*30, time.Millisecond*500).Should(Succeed())
+
+				var foundVolume bool
+				for _, volume := range pod.Spec.Volumes {
+					if volume.Name == "www" && volume.PersistentVolumeClaim != nil {
+						Expect(volume.PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
+						foundVolume = true
+						break
+					}
+				}
+				Expect(foundVolume).To(BeTrue(), "Expected to find volume 'www' in pod")
+
+				var foundMount bool
+				for _, container := range pod.Spec.Containers {
+					if container.Name == "test-container" {
+						for _, mount := range container.VolumeMounts {
+							if mount.Name == "www" && mount.MountPath == "/usr/share/nginx/html" {
+								foundMount = true
+								break
+							}
+						}
+					}
+				}
+				Expect(foundMount).To(BeTrue(), "Expected to find volume mount 'www' in container")
 			}
 		})
 	})
