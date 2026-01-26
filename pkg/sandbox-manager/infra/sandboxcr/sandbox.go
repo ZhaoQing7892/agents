@@ -69,7 +69,7 @@ type BaseSandbox[T SandboxCR] struct {
 }
 
 func (s *BaseSandbox[T]) GetTemplate() string {
-	return s.Sandbox.GetLabels()[agentsv1alpha1.LabelSandboxPool]
+	return GetTemplateFromSandbox(s.Sandbox)
 }
 
 func (s *BaseSandbox[T]) InplaceRefresh(ctx context.Context, deepcopy bool) error {
@@ -300,7 +300,7 @@ func (s *Sandbox) CSIMount(ctx context.Context, driver string, request string) e
 			"POD_UID": string(s.Status.PodInfo.PodUID),
 		},
 	}
-	result, err := s.runCommandWithEnvd(ctx, processConfig, 5*time.Second)
+	result, err := s.runCommandWithRuntime(ctx, processConfig, 5*time.Second)
 	if err != nil {
 		log.Error(err, "failed to run command")
 		return err

@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/distribution/reference"
 
@@ -9,12 +10,15 @@ import (
 )
 
 // Extension keys are annotations used by sandbox-manager only.
-
+// Since they are all delivered through the E2B interface, they uniformly use the e2b.agents.kruise.io prefix
 const (
 	ExtensionKeyClaimWithImage               = v1alpha1.E2BPrefix + "image"
+	ExtensionKeyInplaceUpdateTimeout         = v1alpha1.E2BPrefix + "inplace-update-timeout-seconds"
 	ExtensionKeyClaimWithCSIMount            = v1alpha1.E2BPrefix + "csi"
 	ExtensionKeyClaimWithCSIMount_VolumeName = ExtensionKeyClaimWithCSIMount + "-volume-name"
 	ExtensionKeyClaimWithCSIMount_MountPoint = ExtensionKeyClaimWithCSIMount + "-mount-point"
+	ExtensionKeySkipInitRuntime              = v1alpha1.E2BPrefix + "skip-init-runtime"
+	ExtensionKeyReserveFailedSandbox         = v1alpha1.E2BPrefix + "reserve-failed-sandbox"
 )
 
 // Extensions for NewSandboxRequest
@@ -22,6 +26,10 @@ const (
 func (r *NewSandboxRequest) ParseExtensions() error {
 	if r.Metadata == nil {
 		return nil
+	}
+	// common extensions
+	if err := r.parseCommonExtensions(); err != nil {
+		return err
 	}
 	// parse images
 	if err := r.parseExtensionImage(); err != nil {
@@ -34,17 +42,34 @@ func (r *NewSandboxRequest) ParseExtensions() error {
 	return nil
 }
 
+func (r *NewSandboxRequest) parseCommonExtensions() error {
+	r.Extensions.SkipInitRuntime = r.Metadata[ExtensionKeySkipInitRuntime] == v1alpha1.True
+	r.Extensions.ReserveFailedSandbox = r.Metadata[ExtensionKeyReserveFailedSandbox] == v1alpha1.True
+	delete(r.Metadata, ExtensionKeySkipInitRuntime)
+	delete(r.Metadata, ExtensionKeyReserveFailedSandbox)
+	return nil
+}
+
 func (r *NewSandboxRequest) parseExtensionImage() error {
 	// just valid image when image string is not empty
-	image, ok := r.Metadata[ExtensionKeyClaimWithImage]
-	if !ok {
-		return nil
+	if image, ok := r.Metadata[ExtensionKeyClaimWithImage]; ok {
+		if _, err := reference.ParseNormalizedNamed(image); err != nil {
+			return fmt.Errorf("invalid image [%s]: %v", image, err)
+		}
+		r.Extensions.InplaceUpdate.Image = image
+		r.Extensions.InplaceUpdate.TimeoutSeconds = DefaultInplaceUpdateTimeoutSeconds
+		delete(r.Metadata, ExtensionKeyClaimWithImage)
 	}
-	if _, err := reference.ParseNormalizedNamed(image); err != nil {
-		return fmt.Errorf("invalid image [%s]: %v", image, err)
+	if timeoutStr, ok := r.Metadata[ExtensionKeyInplaceUpdateTimeout]; ok {
+		timeoutSeconds, err := strconv.Atoi(timeoutStr)
+		if err != nil {
+			return fmt.Errorf("invalid timeout [%s]: %v", timeoutStr, err)
+		}
+		if timeoutSeconds > 0 {
+			r.Extensions.InplaceUpdate.TimeoutSeconds = timeoutSeconds
+		}
+		delete(r.Metadata, ExtensionKeyInplaceUpdateTimeout)
 	}
-	r.Extensions.Image = image
-	delete(r.Metadata, ExtensionKeyClaimWithImage)
 	return nil
 }
 
