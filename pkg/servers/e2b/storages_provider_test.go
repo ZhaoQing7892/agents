@@ -14,6 +14,7 @@ import (
 	"github.com/openkruise/agents/pkg/agent-runtime/storages"
 	"github.com/openkruise/agents/pkg/sandbox-manager/clients"
 	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
+	"github.com/openkruise/agents/pkg/utils"
 )
 
 func TestController_generateNodePublishVolumeRequest(t *testing.T) {
@@ -255,6 +256,89 @@ func TestController_generateNodePublishVolumeRequest(t *testing.T) {
 			expectError:            true,
 			expectedErrorSubstring: "oss secret is required when mount oss volume",
 		},
+		// namespace test case
+		{
+			name:                 "secret ref with empty namespace should use default namespace",
+			persistentVolumeName: "pv-with-empty-namespace-secret",
+			containerMountPoint:  "/container/mount/target",
+			setupCache: func() infra.CacheProvider {
+				pv := &corev1.PersistentVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pv-with-empty-namespace-secret",
+					},
+					Spec: corev1.PersistentVolumeSpec{
+						PersistentVolumeSource: corev1.PersistentVolumeSource{
+							CSI: &corev1.CSIPersistentVolumeSource{
+								Driver: "test-driver",
+								NodePublishSecretRef: &corev1.SecretReference{
+									Name:      "test-secret",
+									Namespace: "", // empty namespace
+								},
+							},
+						},
+					},
+				}
+				return &mockCacheProvider{pv: pv}
+			},
+			setupClient: func() *clients.ClientSet {
+				return clients.NewFakeClientSet()
+			},
+			setupStorageRegistry: func() storages.VolumeMountProviderRegistry {
+				registry := &mockStorageProviderRegistry{
+					supportedDrivers: map[string]bool{
+						"test-driver": true,
+					},
+					providers: map[string]storages.VolumeMountProvider{
+						"test-driver": &mockVolumeMountProvider{},
+					},
+				}
+				return registry
+			},
+			expectDriverName: "test-driver",
+			expectError:      false,
+		},
+		// invalid namespace test case
+		{
+			name:                 "secret ref with invalid namespace should fail",
+			persistentVolumeName: "pv-with-invalid-namespace-secret",
+			containerMountPoint:  "/container/mount/target",
+			setupCache: func() infra.CacheProvider {
+				pv := &corev1.PersistentVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pv-with-invalid-namespace-secret",
+					},
+					Spec: corev1.PersistentVolumeSpec{
+						PersistentVolumeSource: corev1.PersistentVolumeSource{
+							CSI: &corev1.CSIPersistentVolumeSource{
+								Driver: "test-driver",
+								NodePublishSecretRef: &corev1.SecretReference{
+									Name:      "test-secret",
+									Namespace: "invalid-namespace", // invalid namespace
+								},
+							},
+						},
+					},
+				}
+				return &mockCacheProvider{pv: pv}
+			},
+			setupClient: func() *clients.ClientSet {
+				return clients.NewFakeClientSet()
+			},
+			setupStorageRegistry: func() storages.VolumeMountProviderRegistry {
+				registry := &mockStorageProviderRegistry{
+					supportedDrivers: map[string]bool{
+						"test-driver": true,
+					},
+					providers: map[string]storages.VolumeMountProvider{
+						"test-driver": &mockVolumeMountProvider{},
+					},
+				}
+				return registry
+			},
+			expectDriverName:       "",
+			expectError:            true,
+			expectedErrorSubstring: "invalid node publish secret ref namespace",
+		},
 	}
 
 	for _, tt := range tests {
@@ -264,6 +348,7 @@ func TestController_generateNodePublishVolumeRequest(t *testing.T) {
 				cache:           tt.setupCache(),
 				client:          tt.setupClient(),
 				storageRegistry: tt.setupStorageRegistry(),
+				systemNamespace: utils.DefaultSandboxDeployNamespace,
 			}
 
 			ctx := context.Background()

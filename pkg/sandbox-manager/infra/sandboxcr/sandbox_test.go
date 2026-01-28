@@ -18,6 +18,7 @@ import (
 	"github.com/openkruise/agents/pkg/proxy"
 	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
 	"github.com/openkruise/agents/pkg/utils"
+	constantUtils "github.com/openkruise/agents/pkg/utils"
 )
 
 func ConvertPodToSandboxCR(pod *corev1.Pod) *v1alpha1.Sandbox {
@@ -217,7 +218,7 @@ func TestSandbox_InplaceRefresh(t *testing.T) {
 		},
 	}
 
-	cache, _, client := NewTestCache(t)
+	cache, _, client := NewTestCache(t, constantUtils.DefaultSandboxDeployNamespace)
 	_, err := client.ApiV1alpha1().Sandboxes("default").Create(context.Background(), initialSandbox, metav1.CreateOptions{})
 	assert.NoError(t, err)
 	time.Sleep(10 * time.Millisecond)
@@ -383,7 +384,7 @@ func TestSandbox_SaveTimeout(t *testing.T) {
 				},
 			}
 
-			cache, _, client := NewTestCache(t)
+			cache, _, client := NewTestCache(t, constantUtils.DefaultSandboxDeployNamespace)
 			_, err := client.ApiV1alpha1().Sandboxes("default").Create(context.Background(), sandbox, metav1.CreateOptions{})
 			assert.NoError(t, err)
 			time.Sleep(20 * time.Millisecond)
@@ -652,7 +653,7 @@ func TestSandbox_CSIMount(t *testing.T) {
 			server := NewTestRuntimeServer(tt.result, true, tt.processError)
 			defer server.Close()
 
-			cache, _, client := NewTestCache(t)
+			cache, _, client := NewTestCache(t, constantUtils.DefaultSandboxDeployNamespace)
 			sbx := &v1alpha1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-sandbox",

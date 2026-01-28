@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openkruise/agents/pkg/sandbox-manager/logs"
-	stateutils "github.com/openkruise/agents/pkg/utils/sandboxutils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	k8sinformers "k8s.io/client-go/informers"
@@ -22,7 +20,10 @@ import (
 	informers "github.com/openkruise/agents/client/informers/externalversions"
 	"github.com/openkruise/agents/pkg/proxy"
 	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
-	utils "github.com/openkruise/agents/pkg/utils/sandbox-manager"
+	"github.com/openkruise/agents/pkg/sandbox-manager/logs"
+	commonutils "github.com/openkruise/agents/pkg/utils"
+	managerutils "github.com/openkruise/agents/pkg/utils/sandbox-manager"
+	stateutils "github.com/openkruise/agents/pkg/utils/sandboxutils"
 )
 
 type Infra struct {
@@ -38,19 +39,25 @@ type Infra struct {
 	templates sync.Map
 }
 
-func NewInfra(client sandboxclient.Interface, k8sClient kubernetes.Interface, proxy *proxy.Server) (*Infra, error) {
+func NewInfra(client sandboxclient.Interface, k8sClient kubernetes.Interface, proxy *proxy.Server, systemNamespace string) (*Infra, error) {
 	// Create informer factory for custom Sandbox resources
 	informerFactory := informers.NewSharedInformerFactory(client, time.Minute*10)
 	sandboxInformer := informerFactory.Api().V1alpha1().Sandboxes().Informer()
 	sandboxSetInformer := informerFactory.Api().V1alpha1().SandboxSets().Informer()
 
-	// Create informer factory for native Kubernetes resources (PersistentVolume and Secret)
+	// Create informer factory for native Kubernetes resources (PersistentVolume)
 	coreInformerFactory := k8sinformers.NewSharedInformerFactory(k8sClient, time.Minute*10)
 	persistentVolumeInformer := coreInformerFactory.Core().V1().PersistentVolumes().Informer()
-	secretInformer := coreInformerFactory.Core().V1().Secrets().Informer()
+	// Create informer factory with specified namespace for native Kubernetes resources (Secret)
+	if systemNamespace == "" {
+		systemNamespace = commonutils.DefaultSandboxDeployNamespace
+	}
+	coreInformerFactorySpecifiedNs := k8sinformers.NewSharedInformerFactoryWithOptions(k8sClient, time.Minute*10, k8sinformers.WithNamespace(systemNamespace))
+	// to generate informers only for the specified namespace to avoid potential security privilege escalation risks.
+	secretInformer := coreInformerFactorySpecifiedNs.Core().V1().Secrets().Informer()
 
 	// Initialize cache with all required informers
-	cache, err := NewCache(informerFactory, sandboxInformer, sandboxSetInformer, coreInformerFactory, persistentVolumeInformer, secretInformer)
+	cache, err := NewCache(informerFactory, sandboxInformer, sandboxSetInformer, coreInformerFactorySpecifiedNs, secretInformer, coreInformerFactory, persistentVolumeInformer)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +142,7 @@ func (i *Infra) SelectSandboxes(user string, limit int, filter func(sandbox infr
 	}
 	var sandboxes []infra.Sandbox
 	for _, obj := range objects {
-		if !utils.ResourceVersionExpectationSatisfied(obj) {
+		if !managerutils.ResourceVersionExpectationSatisfied(obj) {
 			continue
 		}
 		sbx := AsSandbox(obj, i.Cache, i.Client)
@@ -154,7 +161,7 @@ func (i *Infra) GetSandbox(ctx context.Context, sandboxID string) (infra.Sandbox
 	if err != nil {
 		return nil, err
 	}
-	if !utils.ResourceVersionExpectationSatisfied(sandbox) {
+	if !managerutils.ResourceVersionExpectationSatisfied(sandbox) {
 		klog.FromContext(ctx).Info("resource version expectation not satisfied, will request APIServer directly")
 		sandbox, err = i.Client.ApiV1alpha1().Sandboxes(sandbox.Namespace).Get(ctx, sandbox.Name, metav1.GetOptions{})
 		if err != nil {
@@ -174,7 +181,7 @@ func (i *Infra) onSandboxAdd(obj any) {
 	}
 	route := AsSandbox(sbx, i.Cache, i.Client).GetRoute()
 	i.Proxy.SetRoute(route)
-	utils.ResourceVersionExpectationObserve(sbx)
+	managerutils.ResourceVersionExpectationObserve(sbx)
 }
 
 func (i *Infra) onSandboxDelete(obj any) {
@@ -183,7 +190,7 @@ func (i *Infra) onSandboxDelete(obj any) {
 		return
 	}
 	i.Proxy.DeleteRoute(stateutils.GetSandboxID(sbx))
-	utils.ResourceVersionExpectationDelete(sbx)
+	managerutils.ResourceVersionExpectationDelete(sbx)
 }
 
 func (i *Infra) onSandboxUpdate(_, newObj any) {
@@ -195,7 +202,7 @@ func (i *Infra) onSandboxUpdate(_, newObj any) {
 		return
 	}
 	i.refreshRoute(AsSandbox(newSbx, i.Cache, i.Client))
-	utils.ResourceVersionExpectationObserve(newSbx)
+	managerutils.ResourceVersionExpectationObserve(newSbx)
 }
 
 func (i *Infra) refreshRoute(sbx infra.Sandbox) {

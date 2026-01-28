@@ -28,6 +28,7 @@ type Controller struct {
 	mux             *http.ServeMux
 	server          *http.Server
 	stop            chan os.Signal
+	systemNamespace string // the namespace where the sandbox manager is running
 	client          *clients.ClientSet
 	cache           infra.CacheProvider
 	storageRegistry storages.VolumeMountProviderRegistry
@@ -41,12 +42,13 @@ type Controller struct {
 // NewController creates a new E2B Controller
 func NewController(domain, adminKey string, sysNs string, maxTimeout int, port int, enableAuth bool, clientSet *clients.ClientSet) *Controller {
 	sc := &Controller{
-		mux:          http.NewServeMux(),
-		client:       clientSet,
-		domain:       domain,
-		clientConfig: clientSet.Config,
-		port:         port,
-		maxTimeout:   maxTimeout,
+		mux:             http.NewServeMux(),
+		client:          clientSet,
+		domain:          domain,
+		clientConfig:    clientSet.Config,
+		port:            port,
+		maxTimeout:      maxTimeout,
+		systemNamespace: sysNs, // the namespace where the sandbox manager is running
 	}
 
 	sc.server = &http.Server{
@@ -71,7 +73,7 @@ func (sc *Controller) Init() error {
 	log := klog.FromContext(ctx)
 	log.Info("init controller")
 	adapter := adapters.DefaultAdapterFactory(sc.port)
-	sandboxManager, err := sandbox_manager.NewSandboxManager(sc.client, adapter)
+	sandboxManager, err := sandbox_manager.NewSandboxManager(sc.client, adapter, sc.systemNamespace)
 	if err != nil {
 		return err
 	}

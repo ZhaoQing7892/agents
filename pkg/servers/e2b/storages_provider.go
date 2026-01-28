@@ -11,6 +11,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
+
+	"github.com/openkruise/agents/pkg/utils"
 )
 
 func (sc *Controller) generateNodePublishVolumeRequest(ctx context.Context, containerMountPoint, persistentVolumeName string) (string, *csi.NodePublishVolumeRequest, error) {
@@ -49,6 +51,11 @@ func (sc *Controller) generateNodePublishVolumeRequest(ctx context.Context, cont
 	var secretObj *corev1.Secret
 	if persistentVolumeObj.Spec.CSI.NodePublishSecretRef != nil {
 		nodePublishSecretRef := persistentVolumeObj.Spec.CSI.NodePublishSecretRef
+		if nodePublishSecretRef.Namespace == "" {
+			nodePublishSecretRef.Namespace = utils.DefaultSandboxDeployNamespace
+		} else if nodePublishSecretRef.Namespace != sc.systemNamespace {
+			return "", nil, fmt.Errorf("invalid node publish secret ref namespace: %s, expected: %s", nodePublishSecretRef.Namespace, utils.DefaultSandboxDeployNamespace)
+		}
 		secretObj, err = sc.cache.GetSecret(nodePublishSecretRef.Namespace, nodePublishSecretRef.Name)
 		if err != nil {
 			log.Error(err, "failed to get secret object by name using cache method", nodePublishSecretRef.Namespace, nodePublishSecretRef.Name)

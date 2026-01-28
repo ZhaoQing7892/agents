@@ -4,14 +4,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openkruise/agents/api/v1alpha1"
-	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
-	utils "github.com/openkruise/agents/pkg/utils/sandbox-manager"
-	"github.com/openkruise/agents/pkg/utils/sandboxutils"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/openkruise/agents/api/v1alpha1"
+	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
+	constantUtils "github.com/openkruise/agents/pkg/utils"
+	utils "github.com/openkruise/agents/pkg/utils/sandbox-manager"
+	"github.com/openkruise/agents/pkg/utils/sandboxutils"
 )
 
 //goland:noinspection GoDeprecation
@@ -174,7 +176,7 @@ func TestSandbox_SetPause(t *testing.T) {
 			}
 			tt.initSandbox(sandbox)
 
-			cache, _, client := NewTestCache(t)
+			cache, _, client := NewTestCache(t, constantUtils.DefaultSandboxDeployNamespace)
 			CreateSandboxWithStatus(t, client, sandbox)
 			time.Sleep(10 * time.Millisecond)
 
@@ -268,7 +270,7 @@ func TestSandbox_ResumeConcurrent(t *testing.T) {
 	state, reason := sandboxutils.GetSandboxState(sandbox)
 	assert.Equal(t, v1alpha1.SandboxStatePaused, state, reason)
 
-	cache, _, client := NewTestCache(t)
+	cache, _, client := NewTestCache(t, constantUtils.DefaultSandboxDeployNamespace)
 	CreateSandboxWithStatus(t, client, sandbox)
 	time.Sleep(10 * time.Millisecond)
 

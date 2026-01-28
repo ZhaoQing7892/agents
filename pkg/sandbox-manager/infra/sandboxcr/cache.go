@@ -22,17 +22,19 @@ import (
 type checkFunc func(sbx *agentsv1alpha1.Sandbox) (bool, error)
 
 type Cache struct {
-	informerFactory          informers.SharedInformerFactory
-	sandboxInformer          cache.SharedIndexInformer
-	sandboxSetInformer       cache.SharedIndexInformer
-	coreInformerFactory      k8sinformers.SharedInformerFactory
-	persistentVolumeInformer cache.SharedIndexInformer
-	secretInformer           cache.SharedIndexInformer
-	stopCh                   chan struct{}
-	waitHooks                *sync.Map // Key: client.ObjectKey; Value: *waitEntry
+	informerFactory                informers.SharedInformerFactory
+	sandboxInformer                cache.SharedIndexInformer
+	sandboxSetInformer             cache.SharedIndexInformer
+	coreInformerFactory            k8sinformers.SharedInformerFactory
+	coreInformerFactorySpecifiedNs k8sinformers.SharedInformerFactory
+	persistentVolumeInformer       cache.SharedIndexInformer
+	secretInformer                 cache.SharedIndexInformer
+	stopCh                         chan struct{}
+	waitHooks                      *sync.Map // Key: client.ObjectKey; Value: *waitEntry
 }
 
 func NewCache(informerFactory informers.SharedInformerFactory, sandboxInformer, sandboxSetInformer cache.SharedIndexInformer,
+	coreInformerFactorySpecifiedNs k8sinformers.SharedInformerFactory, secretInformer cache.SharedIndexInformer,
 	coreInformerFactory k8sinformers.SharedInformerFactory, informers ...cache.SharedIndexInformer) (*Cache, error) {
 	if err := AddLabelSelectorIndexerToInformer(sandboxInformer); err != nil {
 		return nil, err
@@ -44,16 +46,19 @@ func NewCache(informerFactory informers.SharedInformerFactory, sandboxInformer, 
 		stopCh:             make(chan struct{}),
 		waitHooks:          &sync.Map{},
 	}
-	// import core informers
+
+	// import core informers with specified namespace
+	if coreInformerFactorySpecifiedNs != nil {
+		c.coreInformerFactorySpecifiedNs = coreInformerFactorySpecifiedNs
+		c.secretInformer = secretInformer
+	}
+
+	// import core informers with all namespaces
 	if coreInformerFactory != nil {
 		c.coreInformerFactory = coreInformerFactory
 		if len(informers) >= 1 {
 			pvInformer := informers[0]
 			c.persistentVolumeInformer = pvInformer
-		}
-		if len(informers) >= 2 {
-			secretInformer := informers[1]
-			c.secretInformer = secretInformer
 		}
 	}
 	return c, nil
@@ -80,10 +85,16 @@ func (c *Cache) Run(ctx context.Context) error {
 	if c.coreInformerFactory != nil {
 		c.coreInformerFactory.Start(c.stopCh)
 	}
+	if c.coreInformerFactorySpecifiedNs != nil {
+		c.coreInformerFactorySpecifiedNs.Start(c.stopCh)
+	}
 	log.Info("Cache informer started")
 	c.informerFactory.WaitForCacheSync(c.stopCh)
 	if c.coreInformerFactory != nil {
 		c.coreInformerFactory.WaitForCacheSync(c.stopCh)
+	}
+	if c.coreInformerFactorySpecifiedNs != nil {
+		c.coreInformerFactorySpecifiedNs.WaitForCacheSync(c.stopCh)
 	}
 	log.Info("Cache informer synced")
 	return nil

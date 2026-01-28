@@ -30,13 +30,13 @@ type SandboxManager struct {
 }
 
 // NewSandboxManager creates a new SandboxManager instance.
-func NewSandboxManager(client *clients.ClientSet, adapter proxy.RequestAdapter) (*SandboxManager, error) {
+func NewSandboxManager(client *clients.ClientSet, adapter proxy.RequestAdapter, systemNamespace string) (*SandboxManager, error) {
 	m := &SandboxManager{
 		client: client,
 		proxy:  proxy.NewServer(adapter),
 	}
 	var err error
-	m.infra, err = sandboxcr.NewInfra(client.SandboxClient, client.K8sClient, m.proxy)
+	m.infra, err = sandboxcr.NewInfra(client.SandboxClient, client.K8sClient, m.proxy, systemNamespace)
 	return m, err
 }
 

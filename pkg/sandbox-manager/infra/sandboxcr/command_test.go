@@ -9,7 +9,10 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+
 	"github.com/openkruise/agents/pkg/servers/web"
+	constantUtils "github.com/openkruise/agents/pkg/utils"
+
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
@@ -217,7 +220,7 @@ func TestSandbox_runCommandWithEnvd(t *testing.T) {
 			server := NewTestRuntimeServer(tt.result, tt.immediately, tt.processError)
 			defer server.Close()
 
-			cache, _, client := NewTestCache(t)
+			cache, _, client := NewTestCache(t, constantUtils.DefaultSandboxDeployNamespace)
 			sbx := &v1alpha1.Sandbox{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-sandbox",

@@ -7,15 +7,6 @@ import (
 	"testing"
 	"time"
 
-	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
-	"github.com/openkruise/agents/client/clientset/versioned"
-	"github.com/openkruise/agents/pkg/sandbox-manager/clients"
-	"github.com/openkruise/agents/pkg/sandbox-manager/errors"
-	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
-	"github.com/openkruise/agents/pkg/sandbox-manager/infra/sandboxcr"
-	utils2 "github.com/openkruise/agents/pkg/utils"
-	utils "github.com/openkruise/agents/pkg/utils/sandbox-manager"
-	"github.com/openkruise/agents/pkg/utils/sandboxutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -23,6 +14,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
+
+	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
+	"github.com/openkruise/agents/client/clientset/versioned"
+	"github.com/openkruise/agents/pkg/sandbox-manager/clients"
+	"github.com/openkruise/agents/pkg/sandbox-manager/errors"
+	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
+	"github.com/openkruise/agents/pkg/sandbox-manager/infra/sandboxcr"
+	constantUtils "github.com/openkruise/agents/pkg/utils"
+	utils2 "github.com/openkruise/agents/pkg/utils"
+	utils "github.com/openkruise/agents/pkg/utils/sandbox-manager"
+	"github.com/openkruise/agents/pkg/utils/sandboxutils"
 )
 
 var testUser = "test-user"
@@ -69,7 +71,7 @@ func GetSbsOwnerReference() []metav1.OwnerReference {
 
 func setupTestManager(t *testing.T) *SandboxManager {
 	client := clients.NewFakeClientSet()
-	manager, err := NewSandboxManager(client, nil)
+	manager, err := NewSandboxManager(client, nil, constantUtils.DefaultSandboxDeployNamespace)
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
