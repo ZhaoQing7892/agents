@@ -95,9 +95,6 @@ spec:
                 format: int32
                 minimum: 1
                 type: integer
-                x-kubernetes-validations:
-                - message: replicas is immutable
-                  rule: self == oldSelf
               shutdownTime:
                 description: |-
                   ShutdownTime specifies the absolute time when the sandbox should be shut down
@@ -197,9 +194,6 @@ spec:
                   - type
                   type: object
                 type: array
-                x-kubernetes-list-map-keys:
-                - type
-                x-kubernetes-list-type: map
               message:
                 description: Message provides human-readable details about the current
                   phase
