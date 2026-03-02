@@ -10,6 +10,7 @@ import (
 	"github.com/openkruise/agents/pkg/servers/e2b/adapters"
 	"github.com/openkruise/agents/pkg/servers/e2b/models"
 	"github.com/openkruise/agents/pkg/servers/web"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/klog/v2"
 )
 
@@ -21,6 +22,9 @@ func (sc *Controller) registerRoutes() {
 			klog.ErrorS(err, "Failed to write health check response")
 		}
 	})
+
+	// Prometheus metrics endpoint for exporting metrics
+	sc.mux.Handle("GET /metrics", promhttp.Handler())
 
 	// Sandbox management endpoints
 	RegisterE2BRoute(sc.mux, http.MethodPost, "/sandboxes", sc.CreateSandbox, sc.CheckApiKey)
