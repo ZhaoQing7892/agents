@@ -238,7 +238,7 @@ func TestCache_WaitForSandboxSatisfied(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cache, clientSet, err := NewTestCache(t)
-			defer cache.Stop()
+			defer cache.Stop(t.Context())
 			require.NoError(t, err)
 
 			// Setup test sandbox
@@ -274,7 +274,7 @@ func TestCache_WaitForSandboxSatisfied_Cancel(t *testing.T) {
 	sandboxManagerUtils.InitLogOutput()
 	cache, clientSet, err := NewTestCache(t)
 	require.NoError(t, err)
-	defer cache.Stop()
+	defer cache.Stop(t.Context())
 	sandboxClient := clientSet.SandboxClient
 	sbx := &agentsv1alpha1.Sandbox{
 		ObjectMeta: metav1.ObjectMeta{
@@ -374,10 +374,9 @@ func TestCache_GetPersistentVolume(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cache, clientSet, err := NewTestCache(t)
+			cache, k8sClient, err := NewTestCache(t)
 			require.NoError(t, err)
-			defer cache.Stop()
-			k8sClient := clientSet.K8sClient
+			defer cache.Stop(t.Context())
 
 			if tt.setupPV != nil {
 				testPV := tt.setupPV()
@@ -425,10 +424,9 @@ func TestCache_GetPersistentVolume(t *testing.T) {
 
 func TestCache_GetPersistentVolume_FromSync(t *testing.T) {
 	utils.InitLogOutput()
-	cache, clientSet, err := NewTestCache(t)
+	cache, k8sClient, err := NewTestCache(t)
 	require.NoError(t, err)
-	defer cache.Stop()
-	k8sClient := clientSet.K8sClient
+	defer cache.Stop(t.Context())
 
 	testPV := &corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -464,10 +462,9 @@ func TestCache_GetPersistentVolume_FromSync(t *testing.T) {
 func TestCache_GetSecret_FromSync(t *testing.T) {
 	sandboxManagerUtils.InitLogOutput()
 
-	cache, clientSet, err := NewTestCache(t)
+	cache, k8sClient, err := NewTestCache(t)
 	require.NoError(t, err)
-	defer cache.Stop()
-	k8sClient := clientSet.K8sClient
+	defer cache.Stop(t.Context())
 
 	testSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -500,7 +497,7 @@ func TestCache_GetConfigmap_FromSync(t *testing.T) {
 
 	cache, clientSet, err := NewTestCache(t)
 	require.NoError(t, err)
-	defer cache.Stop()
+	defer cache.Stop(t.Context())
 	k8sClient := clientSet.K8sClient
 
 	testConfigMap := &corev1.ConfigMap{
@@ -686,7 +683,7 @@ func TestCache_InformerWithFilter_GetSandboxSet(t *testing.T) {
 					require.NoError(t, err, "failed to create SandboxSet %s/%s", sbs.Namespace, sbs.Name)
 				}
 			}
-			defer c.Stop()
+			defer c.Stop(t.Context())
 
 			// Wait for informer sync
 			time.Sleep(300 * time.Millisecond)

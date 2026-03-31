@@ -36,6 +36,7 @@ type Controller struct {
 	extProcMaxConcurrency uint32
 	sandboxLabelSelector  string
 	sandboxNamespace      string
+	memberlistBindPort    int
 
 	// fields
 	mux             *http.ServeMux
@@ -52,7 +53,7 @@ type Controller struct {
 
 // NewController creates a new E2B Controller
 func NewController(domain, adminKey string, sysNs, sandboxNamespace, sandboxLabelSelector string, maxTimeout, maxClaimWorkers, maxCreateQPS int, extProcMaxConcurrency uint32,
-	port int, enableAuth bool, clientSet *clients.ClientSet) *Controller {
+	port int, enableAuth bool, memberlistBindPort int, clientSet *clients.ClientSet) *Controller {
 	sc := &Controller{
 		mux:                   http.NewServeMux(),
 		client:                clientSet,
@@ -66,6 +67,7 @@ func NewController(domain, adminKey string, sysNs, sandboxNamespace, sandboxLabe
 		maxClaimWorkers:       maxClaimWorkers,
 		maxCreateQPS:          maxCreateQPS,
 		extProcMaxConcurrency: extProcMaxConcurrency,
+		memberlistBindPort:    memberlistBindPort,
 	}
 
 	sc.server = &http.Server{
@@ -97,6 +99,7 @@ func (sc *Controller) Init() error {
 		MaxClaimWorkers:       sc.maxClaimWorkers,
 		ExtProcMaxConcurrency: sc.extProcMaxConcurrency,
 		MaxCreateQPS:          sc.maxCreateQPS,
+		MemberlistBindPort:    sc.memberlistBindPort,
 	})
 	if err != nil {
 		return err
@@ -140,11 +143,12 @@ func (sc *Controller) Run(sysNs, peerSelector string) (context.Context, error) {
 	go func() {
 		<-sc.stop
 		// Shutdown server gracefully
-		klog.InfoS("Shutting down server...")
+		shutdownCtx, shutdownCancel := context.WithTimeout(logs.NewContext("action", "shutdown"), consts.ShutdownTimeout)
+		log := klog.FromContext(shutdownCtx)
+		log.Info("Shutting down server...")
 		defer cancel()
-		sc.manager.Stop()
+		sc.manager.Stop(shutdownCtx)
 		// Shutdown HTTP server with timeout
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), consts.ShutdownTimeout)
 		defer shutdownCancel()
 		if err := sc.server.Shutdown(shutdownCtx); err != nil {
 			klog.ErrorS(err, "HTTP server forced to shutdown")

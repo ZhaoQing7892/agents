@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
-	"strings"
 
 	"github.com/openkruise/agents/pkg/sandbox-manager/consts"
 )
@@ -33,23 +31,9 @@ func requestPeer(method, ip, path string, body []byte) error {
 		_ = Body.Close()
 	}(resp.Body)
 
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("request to peer %s failed with status code: %d", ip, resp.StatusCode)
+	}
+
 	return nil
-}
-
-func getRealIP(r *http.Request) string {
-	xForwardedFor := r.Header.Get("X-Forwarded-For")
-	if xForwardedFor != "" {
-		ips := strings.Split(xForwardedFor, ",")
-		if len(ips) > 0 {
-			return strings.TrimSpace(ips[0])
-		}
-	}
-
-	xRealIP := r.Header.Get("X-Real-IP")
-	if xRealIP != "" {
-		return xRealIP
-	}
-
-	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-	return ip
 }

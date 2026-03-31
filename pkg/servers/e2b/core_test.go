@@ -17,12 +17,14 @@ import (
 	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
 	"github.com/openkruise/agents/client/clientset/versioned"
 	"github.com/openkruise/agents/pkg/sandbox-manager/clients"
+	"github.com/openkruise/agents/pkg/sandbox-manager/config"
 	"github.com/openkruise/agents/pkg/servers/e2b/keys"
 	"github.com/openkruise/agents/pkg/servers/e2b/models"
 	utils "github.com/openkruise/agents/pkg/utils/sandbox-manager"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -86,7 +88,7 @@ func Setup(t *testing.T) (*Controller, *clients.ClientSet, func()) {
 	assert.NoError(t, err)
 
 	controller := NewController("example.com", InitKey, namespace, "", "", models.DefaultMaxTimeout, 10,
-		0, 0, TestServerPort, true, clientSet)
+		0, 0, TestServerPort, true, config.DefaultMemberlistBindPort, clientSet)
 	assert.NoError(t, controller.Init())
 	_, err = controller.Run(namespace, "component=sandbox-manager")
 	assert.NoError(t, err)
@@ -160,7 +162,9 @@ func CreateSandboxPool(t *testing.T, controller *Controller, name string, availa
 	}
 	client := controller.client.SandboxClient
 	_, err := client.ApiV1alpha1().SandboxSets(Namespace).Create(t.Context(), sbs, metav1.CreateOptions{})
-	require.NoError(t, err)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		require.NoError(t, err)
+	}
 	require.Eventually(t, func() bool {
 		return controller.manager.GetInfra().HasTemplate(name)
 	}, time.Second, 10*time.Millisecond)
@@ -218,7 +222,6 @@ func CreateSandboxPool(t *testing.T, controller *Controller, name string, availa
 		return len(pool) == available && controller.manager.GetInfra().HasTemplate(name)
 	}, time.Second, 10*time.Millisecond)
 	return func() {
-		assert.NoError(t, client.ApiV1alpha1().SandboxSets(Namespace).Delete(context.Background(), name, metav1.DeleteOptions{}))
 		for i := 0; i < available; i++ {
 			assert.NoError(t, client.ApiV1alpha1().Sandboxes(Namespace).Delete(context.Background(), fmt.Sprintf("%s-%d", name, i), metav1.DeleteOptions{}))
 		}
