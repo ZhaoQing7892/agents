@@ -17,6 +17,7 @@ import (
 	"github.com/openkruise/agents/api/v1alpha1"
 	"github.com/openkruise/agents/pkg/agent-runtime/storages"
 	"github.com/openkruise/agents/pkg/sandbox-manager/clients"
+	"github.com/openkruise/agents/pkg/sandbox-manager/consts"
 	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
 	"github.com/openkruise/agents/pkg/utils"
 )
@@ -47,7 +48,8 @@ func (h *CSIMountHandler) GenerateNodePublishVolumeRequest(ctx context.Context, 
 	// where implementing a resilience or fault-tolerance mechanism can help mitigate spurious errors and improve system robustness.
 	persistentVolumeObj, err := h.cache.GetPersistentVolume(mountRequest.PvName)
 	if err != nil {
-		log.Error(err, "failed to get persistent volume object by name using cache method", mountRequest.PvName)
+		log.V(consts.DebugLogLevel).Info("failed to get persistent volume object by name using cache method",
+			"pvName", mountRequest.PvName, "err", err)
 		persistentVolumeObj, err = h.client.CoreV1().PersistentVolumes().Get(ctx, mountRequest.PvName, metav1.GetOptions{})
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to get persistent volume object by name: %s, err: %v", mountRequest.PvName, err)
@@ -81,7 +83,8 @@ func (h *CSIMountHandler) GenerateNodePublishVolumeRequest(ctx context.Context, 
 		}
 		secretObj, err = h.cache.GetSecret(nodePublishSecretRef.Namespace, nodePublishSecretRef.Name)
 		if err != nil {
-			log.Error(err, "failed to get secret object by name using cache method", nodePublishSecretRef.Namespace, nodePublishSecretRef.Name)
+			log.V(consts.DebugLogLevel).Info("failed to get secret object by name using cache method",
+				"namespace", nodePublishSecretRef.Namespace, "name", nodePublishSecretRef.Name, "error", err)
 			secretObj, err = h.client.CoreV1().Secrets(nodePublishSecretRef.Namespace).Get(ctx, nodePublishSecretRef.Name, metav1.GetOptions{})
 			if err != nil {
 				return "", nil, fmt.Errorf("failed to get secret object by name:%s/%s, err: %v",
