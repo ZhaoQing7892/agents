@@ -1,12 +1,104 @@
 package e2b
 
 import (
+	"fmt"
 	"net/http"
 
-	"github.com/openkruise/agents/pkg/sandbox-manager/errors"
-	"github.com/openkruise/agents/pkg/servers/web"
 	"k8s.io/klog/v2"
+
+	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
+	"github.com/openkruise/agents/pkg/sandbox-manager/errors"
+	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
+	"github.com/openkruise/agents/pkg/servers/e2b/models"
+	"github.com/openkruise/agents/pkg/servers/web"
+	managerutils "github.com/openkruise/agents/pkg/utils/sandbox-manager"
 )
+
+// ListTemplates returns a list of all templates
+func (sc *Controller) ListTemplates(r *http.Request) (web.ApiResponse[[]*models.TemplateInfo], *web.ApiError) {
+	log := klog.FromContext(r.Context())
+	user := GetUserFromContext(r.Context())
+	if user == nil {
+		return web.ApiResponse[[]*models.TemplateInfo]{}, &web.ApiError{
+			Code:    http.StatusInternalServerError,
+			Message: "User not found",
+		}
+	}
+	// Parse query parameters, teamID is k8s namespace
+	query := r.URL.Query()
+	namespace := query.Get("teamID")
+	log.Info("will list templates", "user", user.Name, "userID", user.ID, "namespace", namespace)
+	// Get all SandboxSets from cache
+	cache := sc.manager.GetInfra().GetCache()
+	if cache == nil {
+		return web.ApiResponse[[]*models.TemplateInfo]{}, &web.ApiError{
+			Code:    http.StatusInternalServerError,
+			Message: "Cache not available",
+		}
+	}
+
+	// Get all SandboxSets from cache using informer
+	// If namespace is not specified, list SandboxSets from all namespace
+	templates, err := cache.ListSandboxSets(namespace)
+	if err != nil {
+		return web.ApiResponse[[]*models.TemplateInfo]{}, &web.ApiError{
+			Code:    http.StatusInternalServerError,
+			Message: fmt.Sprintf("Failed to list templates: %v", err),
+		}
+	}
+
+	// Convert to E2B format
+	e2bTemplates := make([]*models.TemplateInfo, 0, len(templates))
+	for _, tmpl := range templates {
+		e2bTemplate := sc.convertToTemplateInfo(tmpl)
+		e2bTemplates = append(e2bTemplates, e2bTemplate)
+	}
+	return web.ApiResponse[[]*models.TemplateInfo]{
+		Code: http.StatusOK,
+		Body: e2bTemplates,
+	}, nil
+}
+
+// GetTemplate returns a specific template by ID
+func (sc *Controller) GetTemplate(r *http.Request) (web.ApiResponse[*models.Template], *web.ApiError) {
+	log := klog.FromContext(r.Context())
+	user := GetUserFromContext(r.Context())
+	if user == nil {
+		return web.ApiResponse[*models.Template]{}, &web.ApiError{
+			Code:    http.StatusInternalServerError,
+			Message: "User not found",
+		}
+	}
+
+	templateID := r.PathValue("templateID")
+	log.Info("will get template", "user", user.Name, "userID", user.ID, "templateID", templateID)
+
+	// Get SandboxSet from cache
+	cache := sc.manager.GetInfra().GetCache()
+	if cache == nil {
+		return web.ApiResponse[*models.Template]{}, &web.ApiError{
+			Code:    http.StatusInternalServerError,
+			Message: "Cache not available",
+		}
+	}
+
+	// Get SandboxSet from cache using informer
+	template, err := sc.getSandboxSetFromCache(templateID, cache)
+	if err != nil {
+		return web.ApiResponse[*models.Template]{}, &web.ApiError{
+			Code:    http.StatusNotFound,
+			Message: fmt.Sprintf("Template not found: %s", templateID),
+		}
+	}
+
+	// Convert to E2B format
+	e2bTemplate := sc.convertToTemplate(template)
+
+	return web.ApiResponse[*models.Template]{
+		Code: http.StatusOK,
+		Body: e2bTemplate,
+	}, nil
+}
 
 // DeleteTemplate deletes a template (checkpoint and its associated sandbox template)
 func (sc *Controller) DeleteTemplate(r *http.Request) (web.ApiResponse[struct{}], *web.ApiError) {
@@ -45,4 +137,104 @@ func (sc *Controller) DeleteTemplate(r *http.Request) (web.ApiResponse[struct{}]
 	return web.ApiResponse[struct{}]{
 		Code: http.StatusNoContent,
 	}, nil
+}
+
+// getSandboxSetFromCache gets a SandboxSet from cache using informer
+func (sc *Controller) getSandboxSetFromCache(templateID string, cache infra.CacheProvider) (*agentsv1alpha1.SandboxSet, error) {
+	// Get all SandboxSets from cache
+	templates, err := cache.ListSandboxSets("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sandboxsets: %w", err)
+	}
+
+	// Find the specific SandboxSet by name
+	for _, tmpl := range templates {
+		if tmpl.Name == templateID {
+			return tmpl, nil
+		}
+	}
+
+	return nil, fmt.Errorf("sandboxset %s not found in cache", templateID)
+}
+
+// convertToTemplateInfo converts SandboxSet to E2B TemplateInfo
+func (sc *Controller) convertToTemplateInfo(tmpl *agentsv1alpha1.SandboxSet) *models.TemplateInfo {
+	cpuCount, memoryMB, diskSizeMB := BuildResource(tmpl)
+	return &models.TemplateInfo{
+		TemplateID:  tmpl.Name,
+		BuildID:     tmpl.Name,
+		CPUCount:    cpuCount,
+		MemoryMB:    memoryMB,
+		DiskSizeMB:  diskSizeMB,
+		Public:      true,
+		Aliases:     []string{tmpl.Name},
+		Names:       []string{tmpl.Name},
+		CreatedAt:   tmpl.CreationTimestamp.Time,
+		UpdatedAt:   tmpl.CreationTimestamp.Time,
+		CreatedBy:   nil,
+		SpawnCount:  0,
+		BuildCount:  1,
+		EnvdVersion: "0.1.1",
+		BuildStatus: buildStatus(tmpl),
+	}
+}
+
+// convertToTemplate converts SandboxSet to E2B Template
+func (sc *Controller) convertToTemplate(tmpl *agentsv1alpha1.SandboxSet) *models.Template {
+	cpuCount, memoryMB, diskSizeMB := BuildResource(tmpl)
+	// Create builds array
+	builds := []models.Build{
+		{
+			BuildID:     tmpl.Name,
+			Status:      buildStatus(tmpl),
+			CreatedAt:   tmpl.CreationTimestamp.Time,
+			UpdatedAt:   tmpl.CreationTimestamp.Time,
+			CPUCount:    cpuCount,
+			MemoryMB:    memoryMB,
+			FinishedAt:  tmpl.CreationTimestamp.Time,
+			DiskSizeMB:  diskSizeMB,
+			EnvdVersion: "0.1.1",
+		},
+	}
+	return &models.Template{
+		TemplateID:    tmpl.Name,
+		Public:        true,
+		Aliases:       []string{tmpl.Name},
+		Names:         []string{tmpl.Name},
+		CreatedAt:     tmpl.CreationTimestamp.Time,
+		UpdatedAt:     tmpl.CreationTimestamp.Time,
+		LastSpawnedAt: nil,
+		SpawnCount:    0,
+		Builds:        builds,
+	}
+}
+
+func BuildResource(tmpl *agentsv1alpha1.SandboxSet) (int, int, int) {
+	cpuCount, memoryMB, diskSizeMB := 0, 0, 0
+	if tmpl.Spec.Template != nil {
+		resource := managerutils.CalculateResourceFromContainers(tmpl.Spec.Template.Spec.Containers)
+		if resource.CPUMilli > 0 {
+			cpuCount = int(resource.CPUMilli / 1000)
+		}
+		if resource.MemoryMB > 0 {
+			memoryMB = int(resource.MemoryMB)
+		}
+		if resource.DiskSizeMB > 0 {
+			diskSizeMB = int(resource.DiskSizeMB)
+		}
+		// Calculate disk size from volumeClaimTemplates
+		for _, pvc := range tmpl.Spec.VolumeClaimTemplates {
+			if storage := pvc.Spec.Resources.Requests.Storage(); storage != nil && !storage.IsZero() {
+				diskSizeMB += int(storage.Value() / (1024 * 1024))
+			}
+		}
+	}
+	return cpuCount, memoryMB, diskSizeMB
+}
+
+func buildStatus(tmpl *agentsv1alpha1.SandboxSet) string {
+	if !tmpl.DeletionTimestamp.IsZero() {
+		return "deleting"
+	}
+	return "ready"
 }

@@ -76,6 +76,8 @@ type CacheProvider interface {
 	ListSandboxWithUser(user string) ([]*agentsv1alpha1.Sandbox, error)
 	ListSandboxesInPool(pool string) ([]*agentsv1alpha1.Sandbox, error)
 	GetCheckpoint(checkpointID string) (*agentsv1alpha1.Checkpoint, error)
+	GetSandboxSet(name string) (*agentsv1alpha1.SandboxSet, error)
+	ListSandboxSets(namespace string) ([]*agentsv1alpha1.SandboxSet, error)
 }
 
 type CheckpointInfo struct {

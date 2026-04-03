@@ -198,6 +198,27 @@ func (c *Cache) GetSandboxSet(name string) (*agentsv1alpha1.SandboxSet, error) {
 	return list[0], nil
 }
 
+// ListSandboxSets lists all SandboxSets in the given namespace from cache
+func (c *Cache) ListSandboxSets(namespace string) ([]*agentsv1alpha1.SandboxSet, error) {
+	// Get all SandboxSets from informer store
+	allItems := c.sandboxSetInformer.GetStore().List()
+
+	templates := make([]*agentsv1alpha1.SandboxSet, 0)
+	for _, item := range allItems {
+		sbs, ok := item.(*agentsv1alpha1.SandboxSet)
+		if !ok {
+			continue
+		}
+		// Filter by namespace if specified
+		if namespace != "" && sbs.Namespace != namespace {
+			continue
+		}
+		templates = append(templates, sbs)
+	}
+
+	return templates, nil
+}
+
 func (c *Cache) AddSandboxSetEventHandler(handler cache.ResourceEventHandlerFuncs) {
 	if c.sandboxSetInformer == nil {
 		panic("SandboxSet is not cached")

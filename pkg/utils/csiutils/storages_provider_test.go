@@ -1021,6 +1021,14 @@ func (m *mockCacheProvider) GetCheckpoint(_ string) (*agentsv1alpha1.Checkpoint,
 	return nil, fmt.Errorf("not implemented for checkpoint cache mock")
 }
 
+func (m *mockCacheProvider) GetSandboxSet(_ string) (*agentsv1alpha1.SandboxSet, error) {
+	return nil, fmt.Errorf("not implemented for sandboxset cache mock")
+}
+
+func (m *mockCacheProvider) ListSandboxSets(_ string) ([]*agentsv1alpha1.SandboxSet, error) {
+	return nil, fmt.Errorf("not implemented for sandboxset cache mock")
+}
+
 type mockStorageProviderRegistry struct {
 	supportedDrivers map[string]bool
 	providers        map[string]storages.VolumeMountProvider
