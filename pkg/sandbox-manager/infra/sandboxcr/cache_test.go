@@ -713,3 +713,126 @@ func TestCache_InformerWithFilter_GetSandboxSet(t *testing.T) {
 		})
 	}
 }
+
+func TestCache_ListSandboxSets(t *testing.T) {
+	sandboxManagerUtils.InitLogOutput()
+
+	tests := []struct {
+		name            string
+		opts            config.SandboxManagerOptions
+		seedSandboxSets []*agentsv1alpha1.SandboxSet
+		queryNamespace  string
+		wantNames       []string // expected SandboxSet names (namespace/name)
+		wantCount       int      // expected count of returned SandboxSets
+	}{
+		{
+			name: "list all SandboxSets without namespace filter",
+			opts: config.SandboxManagerOptions{},
+			seedSandboxSets: []*agentsv1alpha1.SandboxSet{
+				{ObjectMeta: metav1.ObjectMeta{Name: "set-1", Namespace: "team-a"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "set-2", Namespace: "team-a"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "set-3", Namespace: "team-b"}},
+			},
+			queryNamespace: "",
+			wantNames:      []string{"team-a/set-1", "team-a/set-2", "team-b/set-3"},
+			wantCount:      3,
+		},
+		{
+			name: "list SandboxSets with namespace filter",
+			opts: config.SandboxManagerOptions{},
+			seedSandboxSets: []*agentsv1alpha1.SandboxSet{
+				{ObjectMeta: metav1.ObjectMeta{Name: "set-1", Namespace: "team-a"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "set-2", Namespace: "team-a"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "set-3", Namespace: "team-b"}},
+			},
+			queryNamespace: "team-a",
+			wantNames:      []string{"team-a/set-1", "team-a/set-2"},
+			wantCount:      2,
+		},
+		{
+			name: "list SandboxSets with namespace filter - no matches",
+			opts: config.SandboxManagerOptions{},
+			seedSandboxSets: []*agentsv1alpha1.SandboxSet{
+				{ObjectMeta: metav1.ObjectMeta{Name: "set-1", Namespace: "team-a"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "set-2", Namespace: "team-b"}},
+			},
+			queryNamespace: "team-c",
+			wantNames:      []string{},
+			wantCount:      0,
+		},
+		{
+			name:            "list SandboxSets when cache is empty",
+			opts:            config.SandboxManagerOptions{},
+			seedSandboxSets: []*agentsv1alpha1.SandboxSet{},
+			queryNamespace:  "",
+			wantNames:       []string{},
+			wantCount:       0,
+		},
+		{
+			name: "list SandboxSets with informer namespace filter",
+			opts: config.SandboxManagerOptions{
+				SandboxNamespace: "team-a",
+			},
+			seedSandboxSets: []*agentsv1alpha1.SandboxSet{
+				{ObjectMeta: metav1.ObjectMeta{Name: "set-1", Namespace: "team-a"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "set-2", Namespace: "team-a"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "set-3", Namespace: "team-b"}},
+			},
+			queryNamespace: "",
+			wantNames:      []string{"team-a/set-1", "team-a/set-2"},
+			wantCount:      2,
+		},
+		{
+			name: "list SandboxSets with informer namespace filter and query namespace",
+			opts: config.SandboxManagerOptions{
+				SandboxNamespace: "team-a",
+			},
+			seedSandboxSets: []*agentsv1alpha1.SandboxSet{
+				{ObjectMeta: metav1.ObjectMeta{Name: "set-1", Namespace: "team-a"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "set-2", Namespace: "team-a"}},
+			},
+			queryNamespace: "team-a",
+			wantNames:      []string{"team-a/set-1", "team-a/set-2"},
+			wantCount:      2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var (
+				c         *Cache
+				clientSet *clients.ClientSet
+				err       error
+			)
+
+			c, clientSet, err = NewTestCacheWithOptions(t, tt.opts)
+			require.NoError(t, err)
+
+			// Seed SandboxSets after the Cache is running
+			for _, sbs := range tt.seedSandboxSets {
+				_, err := clientSet.SandboxClient.ApiV1alpha1().SandboxSets(sbs.Namespace).Create(
+					t.Context(), sbs, metav1.CreateOptions{},
+				)
+				require.NoError(t, err, "failed to create SandboxSet %s/%s", sbs.Namespace, sbs.Name)
+			}
+			defer c.Stop(t.Context())
+
+			// Wait for informer sync
+			time.Sleep(300 * time.Millisecond)
+
+			// Call ListSandboxSets
+			result, err := c.ListSandboxSets(tt.queryNamespace)
+			require.NoError(t, err)
+
+			// Verify count
+			assert.Equal(t, tt.wantCount, len(result), "unexpected count of SandboxSets")
+
+			// Verify names
+			gotNames := make([]string, 0, len(result))
+			for _, sbs := range result {
+				gotNames = append(gotNames, sbs.Namespace+"/"+sbs.Name)
+			}
+			assert.ElementsMatch(t, tt.wantNames, gotNames, "SandboxSet names mismatch")
+		})
+	}
+}
