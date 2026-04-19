@@ -20,9 +20,10 @@ import (
 	"fmt"
 	"time"
 
-	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
+
+	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
 )
 
 // CalculateClaimStatus determines the next phase of a SandboxClaim and whether to skip business logic.

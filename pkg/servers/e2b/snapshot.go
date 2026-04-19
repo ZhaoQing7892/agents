@@ -6,11 +6,12 @@ import (
 	"net/http"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	"github.com/openkruise/agents/api/v1alpha1"
 	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
 	"github.com/openkruise/agents/pkg/servers/e2b/models"
 	"github.com/openkruise/agents/pkg/servers/web"
-	"k8s.io/klog/v2"
 )
 
 func (sc *Controller) CreateSnapshot(r *http.Request) (web.ApiResponse[*models.Snapshot], *web.ApiError) {

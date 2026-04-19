@@ -9,15 +9,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
-	"github.com/openkruise/agents/pkg/servers/e2b/keys"
-	"github.com/openkruise/agents/pkg/servers/e2b/models"
-	"github.com/openkruise/agents/pkg/servers/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
+	"github.com/openkruise/agents/pkg/servers/e2b/keys"
+	"github.com/openkruise/agents/pkg/servers/e2b/models"
+	"github.com/openkruise/agents/pkg/servers/web"
 )
 
 func TestListSandboxes(t *testing.T) {

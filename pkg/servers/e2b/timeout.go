@@ -6,10 +6,11 @@ import (
 	"net/http"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	"github.com/openkruise/agents/api/v1alpha1"
 	"github.com/openkruise/agents/pkg/servers/e2b/models"
 	"github.com/openkruise/agents/pkg/servers/web"
-	"k8s.io/klog/v2"
 )
 
 // SetSandboxTimeout sets the timeout of a claimed sandbox

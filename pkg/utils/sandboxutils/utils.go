@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
 	"github.com/openkruise/agents/pkg/utils"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // GetSandboxState the state of agentsv1alpha1 Sandbox.

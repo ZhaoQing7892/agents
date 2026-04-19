@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"k8s.io/klog/v2"
+
 	"github.com/openkruise/agents/pkg/servers/web"
 	"github.com/openkruise/agents/proto/envd/process"
 	"github.com/openkruise/agents/proto/envd/process/processconnect"
-	"k8s.io/klog/v2"
 )
 
 var AccessToken = "access-token"

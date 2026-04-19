@@ -9,13 +9,14 @@ import (
 	"hash/fnv"
 	"strconv"
 
-	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
 	apps "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/dump"
 	"k8s.io/apimachinery/pkg/util/rand"
+
+	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
 )
 
 // getPatch returns a strategic merge patch that can be applied to restore a StatefulSet to a

@@ -241,9 +241,9 @@ func (m *mockSandboxManager) Run(ctx context.Context, sysNs, peerSelector string
 
 func TestCreateSandboxWithClaim_CSIMount(t *testing.T) {
 	tests := []struct {
-		name              string
-		request           models.NewSandboxRequest
-		expectCSIMount    bool
+		name               string
+		request            models.NewSandboxRequest
+		expectCSIMount     bool
 		expectedMountCount int
 	}{
 		{
@@ -275,7 +275,7 @@ func TestCreateSandboxWithClaim_CSIMount(t *testing.T) {
 					},
 				},
 			},
-			expectCSIMount:    true,
+			expectCSIMount:     true,
 			expectedMountCount: 1,
 		},
 		{
@@ -303,7 +303,7 @@ func TestCreateSandboxWithClaim_CSIMount(t *testing.T) {
 					},
 				},
 			},
-			expectCSIMount:    true,
+			expectCSIMount:     true,
 			expectedMountCount: 3,
 		},
 	}
@@ -327,11 +327,11 @@ func TestCreateSandboxWithClaim_CSIMount(t *testing.T) {
 
 func TestCreateSandboxWithClone_CSIMount(t *testing.T) {
 	tests := []struct {
-		name              string
-		request           models.NewSandboxRequest
-		expectCSIMount    bool
+		name               string
+		request            models.NewSandboxRequest
+		expectCSIMount     bool
 		expectedMountCount int
-		hasInplaceUpdate  bool
+		hasInplaceUpdate   bool
 	}{
 		{
 			name: "clone with csi mount",
@@ -348,7 +348,7 @@ func TestCreateSandboxWithClone_CSIMount(t *testing.T) {
 					},
 				},
 			},
-			expectCSIMount:    true,
+			expectCSIMount:     true,
 			expectedMountCount: 1,
 		},
 		{
@@ -371,7 +371,7 @@ func TestCreateSandboxWithClone_CSIMount(t *testing.T) {
 					},
 				},
 			},
-			expectCSIMount:    true,
+			expectCSIMount:     true,
 			expectedMountCount: 2,
 		},
 		{
@@ -392,9 +392,9 @@ func TestCreateSandboxWithClone_CSIMount(t *testing.T) {
 					},
 				},
 			},
-			expectCSIMount:   true,
+			expectCSIMount:     true,
 			expectedMountCount: 1,
-			hasInplaceUpdate: true,
+			hasInplaceUpdate:   true,
 		},
 	}
 

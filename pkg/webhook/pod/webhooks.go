@@ -1,10 +1,11 @@
 package pod
 
 import (
-	"github.com/openkruise/agents/pkg/webhook/pod/validating"
-	"github.com/openkruise/agents/pkg/webhook/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/openkruise/agents/pkg/webhook/pod/validating"
+	"github.com/openkruise/agents/pkg/webhook/types"
 )
 
 func GetHandlerGetters() []types.HandlerGetter {

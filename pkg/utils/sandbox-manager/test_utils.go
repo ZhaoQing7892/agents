@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/openkruise/agents/pkg/sandbox-manager/consts"
 	"k8s.io/klog/v2"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/openkruise/agents/pkg/sandbox-manager/consts"
 )
 
 var initOnce sync.Once

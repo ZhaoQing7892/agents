@@ -10,11 +10,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	testutils "github.com/openkruise/agents/test/utils"
-
 	"github.com/openkruise/agents/api/v1alpha1"
 	utils "github.com/openkruise/agents/pkg/utils/sandbox-manager"
 	"github.com/openkruise/agents/proto/envd/process"
+	testutils "github.com/openkruise/agents/test/utils"
 )
 
 func TestSandbox_runCommandWithEnvd(t *testing.T) {

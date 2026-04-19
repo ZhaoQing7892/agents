@@ -20,10 +20,11 @@ import (
 	"context"
 	"sync"
 
-	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
 )
 
 const (

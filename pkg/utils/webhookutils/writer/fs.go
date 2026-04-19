@@ -7,9 +7,10 @@ import (
 	"os"
 	"path"
 
+	"k8s.io/klog/v2"
+
 	"github.com/openkruise/agents/pkg/utils/webhookutils/generator"
 	"github.com/openkruise/agents/pkg/utils/webhookutils/writer/atomic"
-	"k8s.io/klog/v2"
 )
 
 const (

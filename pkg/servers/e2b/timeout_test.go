@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openkruise/agents/api/v1alpha1"
-	"github.com/openkruise/agents/pkg/servers/e2b/keys"
-	"github.com/openkruise/agents/pkg/servers/e2b/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/openkruise/agents/api/v1alpha1"
+	"github.com/openkruise/agents/pkg/servers/e2b/keys"
+	"github.com/openkruise/agents/pkg/servers/e2b/models"
 )
 
 func TestSetSandboxTimeoutWithNeverTimeout(t *testing.T) {

@@ -623,7 +623,7 @@ func TestSetMainContainerConfigWhenInjectRuntimeSidecar(t *testing.T) {
 			name: "container with empty Lifecycle - should apply config PostStart",
 			mainContainer: &corev1.Container{
 				Name:      "main",
-				Image:    "nginx:latest",
+				Image:     "nginx:latest",
 				Lifecycle: &corev1.Lifecycle{}, // empty Lifecycle, no PostStart
 			},
 			config: SidecarInjectConfig{

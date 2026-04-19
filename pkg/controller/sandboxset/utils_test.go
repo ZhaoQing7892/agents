@@ -1,4 +1,4 @@
-  /*
+/*
 Copyright 2026.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,17 +16,17 @@ limitations under the License.
 
 package sandboxset
 
-  import (
-	  "context"
-	  "testing"
+import (
+	"context"
+	"testing"
 
-	  "github.com/stretchr/testify/assert"
-	  corev1 "k8s.io/api/core/v1"
-	  metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	  agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
-	  "github.com/openkruise/agents/pkg/utils/expectations"
-  )
+	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
+	"github.com/openkruise/agents/pkg/utils/expectations"
+)
 
 func TestCalculateSandboxSetStatusFromGroup(t *testing.T) {
 	tests := []struct {
@@ -302,14 +302,14 @@ func TestCalculateSandboxSetStatusFromGroup(t *testing.T) {
 
 func TestNewSandboxFromSandboxSet(t *testing.T) {
 	tests := []struct {
-		name                   string
-		sandboxSet             *agentsv1alpha1.SandboxSet
-		expectedGenerateName   string
-		expectedNamespace      string
-		expectedLabels         map[string]string
-		expectedAnnotations    map[string]string
-		expectedRuntimes       []agentsv1alpha1.RuntimeConfig
-		expectedTemplateRef    *agentsv1alpha1.SandboxTemplateRef
+		name                       string
+		sandboxSet                 *agentsv1alpha1.SandboxSet
+		expectedGenerateName       string
+		expectedNamespace          string
+		expectedLabels             map[string]string
+		expectedAnnotations        map[string]string
+		expectedRuntimes           []agentsv1alpha1.RuntimeConfig
+		expectedTemplateRef        *agentsv1alpha1.SandboxTemplateRef
 		expectedPersistentContents []string
 	}{
 		{
@@ -333,9 +333,9 @@ func TestNewSandboxFromSandboxSet(t *testing.T) {
 				agentsv1alpha1.LabelSandboxTemplate:  "test-sbs",
 				agentsv1alpha1.LabelSandboxIsClaimed: "false",
 			},
-			expectedAnnotations:    map[string]string{},
-			expectedRuntimes:       nil,
-			expectedTemplateRef:    nil,
+			expectedAnnotations:        map[string]string{},
+			expectedRuntimes:           nil,
+			expectedTemplateRef:        nil,
 			expectedPersistentContents: nil,
 		},
 		{
@@ -400,7 +400,7 @@ func TestNewSandboxFromSandboxSet(t *testing.T) {
 				{Name: agentsv1alpha1.RuntimeConfigForInjectCsiMount},
 				{Name: agentsv1alpha1.RuntimeConfigForInjectAgentRuntime},
 			},
-			expectedTemplateRef:    nil,
+			expectedTemplateRef:        nil,
 			expectedPersistentContents: []string{"ip", "memory"},
 		},
 		{
@@ -439,8 +439,8 @@ func TestNewSandboxFromSandboxSet(t *testing.T) {
 			expectedAnnotations: map[string]string{
 				"description": "test sandbox",
 			},
-			expectedRuntimes:       nil,
-			expectedTemplateRef:    nil,
+			expectedRuntimes:           nil,
+			expectedTemplateRef:        nil,
 			expectedPersistentContents: nil,
 		},
 		{
@@ -456,11 +456,11 @@ func TestNewSandboxFromSandboxSet(t *testing.T) {
 						Template: &corev1.PodTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{
-									"app":                                       "myapp",
+									"app": "myapp",
 									agentsv1alpha1.InternalPrefix + "old-label": "should-be-removed",
 								},
 								Annotations: map[string]string{
-									"description":                                    "test",
+									"description": "test",
 									agentsv1alpha1.InternalPrefix + "old-annotation": "should-be-removed",
 								},
 							},
@@ -479,8 +479,8 @@ func TestNewSandboxFromSandboxSet(t *testing.T) {
 			expectedAnnotations: map[string]string{
 				"description": "test",
 			},
-			expectedRuntimes:       nil,
-			expectedTemplateRef:    nil,
+			expectedRuntimes:           nil,
+			expectedTemplateRef:        nil,
 			expectedPersistentContents: nil,
 		},
 	}

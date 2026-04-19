@@ -7,14 +7,15 @@ import (
 	"strconv"
 	"testing"
 
-	sandboxclient "github.com/openkruise/agents/client/clientset/versioned"
-	sandboxfake "github.com/openkruise/agents/client/clientset/versioned/fake"
 	"k8s.io/client-go/kubernetes"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog/v2"
+
+	sandboxclient "github.com/openkruise/agents/client/clientset/versioned"
+	sandboxfake "github.com/openkruise/agents/client/clientset/versioned/fake"
 )
 
 type K8sClient kubernetes.Interface

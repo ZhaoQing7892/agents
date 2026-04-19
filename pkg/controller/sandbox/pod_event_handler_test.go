@@ -20,8 +20,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/openkruise/agents/pkg/utils"
-	utilfeature "github.com/openkruise/agents/pkg/utils/feature"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	_ "github.com/openkruise/agents/pkg/features"
+	"github.com/openkruise/agents/pkg/utils"
+	utilfeature "github.com/openkruise/agents/pkg/utils/feature"
 )
 
 // Helper function to create a pointer to a bool

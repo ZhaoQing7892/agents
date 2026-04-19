@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	"github.com/openkruise/agents/api/v1alpha1"
 	"github.com/openkruise/agents/pkg/sandbox-manager/errors"
 	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
 	utils "github.com/openkruise/agents/pkg/utils/sandbox-manager"
-	"k8s.io/klog/v2"
 )
 
 // ClaimSandbox attempts to lock a Pod and assign it to the current caller

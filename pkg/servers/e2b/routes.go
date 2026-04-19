@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+
 	"github.com/openkruise/agents/pkg/sandbox-manager/consts"
 	"github.com/openkruise/agents/pkg/servers/e2b/adapters"
 	"github.com/openkruise/agents/pkg/servers/e2b/keys"
 	"github.com/openkruise/agents/pkg/servers/e2b/models"
 	"github.com/openkruise/agents/pkg/servers/web"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 func (sc *Controller) registerRoutes() {

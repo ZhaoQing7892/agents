@@ -7,8 +7,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/openkruise/agents/pkg/utils/webhookutils/generator"
 	"k8s.io/klog/v2"
+
+	"github.com/openkruise/agents/pkg/utils/webhookutils/generator"
 )
 
 const (

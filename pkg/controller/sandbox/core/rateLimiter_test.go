@@ -19,10 +19,11 @@ import (
 	"testing"
 	"time"
 
-	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
-	utilfeature "github.com/openkruise/agents/pkg/utils/feature"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
+	utilfeature "github.com/openkruise/agents/pkg/utils/feature"
 )
 
 // ---- helpers ----------------------------------------------------------------

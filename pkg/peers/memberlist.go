@@ -24,8 +24,9 @@ import (
 	"time"
 
 	"github.com/hashicorp/memberlist"
-	"github.com/openkruise/agents/pkg/sandbox-manager/logs"
 	"k8s.io/klog/v2"
+
+	"github.com/openkruise/agents/pkg/sandbox-manager/logs"
 )
 
 const (

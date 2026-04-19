@@ -3,9 +3,10 @@ package utils
 import (
 	"testing"
 
-	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
 )
 
 func TestCalculateResourceFromContainers(t *testing.T) {

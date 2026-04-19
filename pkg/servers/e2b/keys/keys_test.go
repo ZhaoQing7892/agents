@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/openkruise/agents/pkg/servers/e2b/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/openkruise/agents/pkg/servers/e2b/models"
 )
 
 func TestSecretKeyStorage_LoadByKey(t *testing.T) {

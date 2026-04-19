@@ -30,12 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // Import all Kubernetes client auth plugins (Azure, GCP, OIDC, etc.)
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/capabilities"
-
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,7 +51,6 @@ import (
 	"github.com/openkruise/agents/pkg/utils/fieldindex"
 	customwebhook "github.com/openkruise/agents/pkg/webhook"
 	"github.com/openkruise/agents/pkg/webhook/sandboxset/mutating"
-	// +kubebuilder:scaffold:imports
 )
 
 var (

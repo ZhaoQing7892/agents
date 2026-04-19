@@ -1,9 +1,10 @@
 package sandboxcr
 
 import (
+	"k8s.io/client-go/tools/cache"
+
 	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
 	stateutils "github.com/openkruise/agents/pkg/utils/sandboxutils"
-	"k8s.io/client-go/tools/cache"
 )
 
 var (

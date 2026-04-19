@@ -69,6 +69,10 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 fmt: ## Run go fmt against code.
 	go fmt ./...
 
+.PHONY: fmt-imports
+fmt-imports: ## Format Go import ordering using gci.
+	@bash hack/fmt-imports.sh
+
 .PHONY: vet
 vet: ## Run go vet against code.
 	go vet ./...

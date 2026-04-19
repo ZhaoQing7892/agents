@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
-	webhookutils "github.com/openkruise/agents/pkg/webhook/utils"
 	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	intstrutil "k8s.io/apimachinery/pkg/util/intstr"
@@ -18,6 +16,9 @@ import (
 	corevalidation "k8s.io/kubernetes/pkg/apis/core/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
+	webhookutils "github.com/openkruise/agents/pkg/webhook/utils"
 )
 
 type SandboxSetValidatingHandler struct {

@@ -25,12 +25,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openkruise/agents/pkg/peers"
-	"github.com/openkruise/agents/pkg/utils/expectations"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
+
+	"github.com/openkruise/agents/pkg/peers"
+	"github.com/openkruise/agents/pkg/utils/expectations"
 )
 
 // Route represents an internal sandbox routing rule

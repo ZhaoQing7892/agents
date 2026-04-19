@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/openkruise/agents/api/v1alpha1"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +15,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/openkruise/agents/api/v1alpha1"
 )
 
 func TestSandboxSetValidatingHandler_Handle(t *testing.T) {

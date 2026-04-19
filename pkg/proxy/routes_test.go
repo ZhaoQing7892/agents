@@ -27,11 +27,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openkruise/agents/pkg/peers"
-	"github.com/openkruise/agents/pkg/sandbox-manager/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/openkruise/agents/pkg/peers"
+	"github.com/openkruise/agents/pkg/sandbox-manager/config"
 )
 
 // mockPeers is a simple in-memory Peers implementation for testing

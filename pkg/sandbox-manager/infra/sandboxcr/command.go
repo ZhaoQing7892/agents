@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"k8s.io/klog/v2"
+
 	"github.com/openkruise/agents/api/v1alpha1"
 	"github.com/openkruise/agents/pkg/sandbox-manager/consts"
 	"github.com/openkruise/agents/proto/envd/process"
 	"github.com/openkruise/agents/proto/envd/process/processconnect"
 	"github.com/openkruise/agents/test/utils"
-	"k8s.io/klog/v2"
 )
 
 func (s *Sandbox) GetRuntimeURL() string {
