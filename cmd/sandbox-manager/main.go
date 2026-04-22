@@ -20,6 +20,9 @@ import (
 	"flag"
 	"net/http"         // Added for pprof server
 	_ "net/http/pprof" // Added to register pprof handlers
+	"strings"
+
+	"os"
 
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
@@ -31,9 +34,15 @@ import (
 	"github.com/openkruise/agents/pkg/sandbox-manager/clients"
 	"github.com/openkruise/agents/pkg/sandbox-manager/consts"
 	"github.com/openkruise/agents/pkg/servers/e2b"
+	"github.com/openkruise/agents/pkg/servers/e2b/keys"
 	"github.com/openkruise/agents/pkg/servers/e2b/models"
 	"github.com/openkruise/agents/pkg/utils"
 	utilfeature "github.com/openkruise/agents/pkg/utils/feature"
+)
+
+const (
+	E2BKeyStorageDSNEnvVar = "E2B_KEY_STORAGE_DSN"
+	E2BKeyHashPepperEnvVar = "E2B_KEY_HASH_PEPPER"
 )
 
 func main() {
@@ -57,6 +66,8 @@ func main() {
 	var kubeClientQPS float64
 	var kubeClientBurst int
 	var memberlistBindPort int
+	var e2bKeyStorage string
+	var e2bKeyStorageDisableAutoMigrate bool
 
 	utilfeature.DefaultMutableFeatureGate.AddFlag(pflag.CommandLine)
 
@@ -80,6 +91,11 @@ func main() {
 	pflag.Float64Var(&kubeClientQPS, "kube-client-qps", 500, "QPS for Kubernetes client")
 	pflag.IntVar(&kubeClientBurst, "kube-client-burst", 1000, "Burst for Kubernetes client")
 	pflag.IntVar(&memberlistBindPort, "memberlist-bind-port", 7946, "Port for memberlist gossip (default 7946)")
+	pflag.StringVar(&e2bKeyStorage, "e2b-key-storage", "secret",
+		"Storage backend for E2B API keys. Valid values: 'secret' (K8s Secret, default), 'mysql' (MySQL via GORM). "+
+			"When --e2b-key-storage=mysql and auth is enabled, set MySQL DSN via environment variable "+E2BKeyStorageDSNEnvVar)
+	pflag.BoolVar(&e2bKeyStorageDisableAutoMigrate, "e2b-key-storage-disable-schema-auto-update", false,
+		"Disable schema auto-migration for DB-Based key storage like mysql; when enabled, schema changes are skipped but admin team/key bootstrap still runs")
 
 	opts := zap.Options{
 		Development: false,
@@ -144,14 +160,45 @@ func main() {
 		klog.Fatalf("--kube-client-burst must be greater than 0")
 	}
 
+	e2bKeyStorageDSN := strings.TrimSpace(os.Getenv(E2BKeyStorageDSNEnvVar))
+	e2bKeyStoragePepper := strings.TrimSpace(os.Getenv(E2BKeyHashPepperEnvVar))
+	if e2bEnableAuth {
+		// Validate key storage args
+		switch e2bKeyStorage {
+		case "secret": // No validation needed
+		case "mysql":
+			if e2bKeyStorageDSN == "" {
+				klog.Fatalf("env %s is required when --e2b-key-storage=mysql", E2BKeyStorageDSNEnvVar)
+			}
+			if e2bKeyStoragePepper == "" {
+				klog.Fatalf("env %s is required when --e2b-key-storage=mysql", E2BKeyHashPepperEnvVar)
+			}
+		default:
+			klog.Fatalf("--e2b-key-storage must be 'secret' or 'mysql'")
+		}
+	}
+
 	// Initialize Kubernetes client and config
 	clientSet, err := clients.NewClientSetWithOptions(float32(kubeClientQPS), kubeClientBurst)
 	if err != nil {
 		klog.Fatalf("Failed to initialize Kubernetes client: %v", err)
 	}
 
-	sandboxController := e2b.NewController(domain, e2bAdminKey, sysNs, sandboxNamespace, sandboxLabelSelector, e2bMaxTimeout, maxClaimWorkers, maxCreateQPS, uint32(extProcMaxConcurrency),
-		port, e2bEnableAuth, memberlistBindPort, clientSet)
+	var keyCfg *keys.Config
+	if e2bEnableAuth {
+		keyCfg = &keys.Config{
+			Mode:               keys.StorageMode(e2bKeyStorage),
+			Namespace:          sysNs,
+			AdminKey:           e2bAdminKey,
+			DSN:                e2bKeyStorageDSN,
+			DisableAutoMigrate: e2bKeyStorageDisableAutoMigrate,
+			Pepper:             e2bKeyStoragePepper,
+			K8sClient:          clientSet.K8sClient,
+		}
+	}
+
+	sandboxController := e2b.NewController(domain, sysNs, sandboxNamespace, sandboxLabelSelector, e2bMaxTimeout, maxClaimWorkers, maxCreateQPS, uint32(extProcMaxConcurrency),
+		port, memberlistBindPort, keyCfg, clientSet)
 	if err := sandboxController.Init(); err != nil {
 		klog.Fatalf("Failed to initialize sandbox controller: %v", err)
 	}
