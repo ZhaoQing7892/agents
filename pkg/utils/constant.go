@@ -44,6 +44,14 @@ const (
 )
 
 const (
+	// SecurityMetadataPrefix is the prefix for all security-related label/annotations.
+	SecurityMetadataPrefix = "security.agents.kruise.io/"
+	// AgentKeyTokenRefreshStatus is the Sandbox Annotation Key,
+	// used to store the JSON serialized result of TokenRefreshStatus
+	AgentKeyTokenRefreshStatus = SecurityMetadataPrefix + "token-status"
+)
+
+const (
 	True  = "true"
 	False = "false"
 
