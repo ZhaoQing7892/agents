@@ -18,6 +18,7 @@ CONTROLLER_IMG ?= agent-sandbox-controller:latest
 MANAGER_IMG ?= sandbox-manager:latest
 RUNTIME_IMG ?= agent-runtime:latest
 GATEWAY_IMG ?= $(GATEWAY_PLUGIN_NAME):latest
+TRAFFIX_EXTENSION_IMG ?= traffic-extension:latest
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -141,6 +142,14 @@ build-sandbox-gateway: ## Build sandbox-gateway plugin binary.
 .PHONY: docker-build-sandbox-gateway
 docker-build-sandbox-gateway: ## Build docker image for sandbox-gateway.
 	docker build -f dockerfiles/sandbox-gateway.Dockerfile -t ${GATEWAY_IMG} .
+
+.PHONY: build-traffic-extension
+build-traffic-extension: ## Build traffic-extension binary.
+	go build -o bin/traffic-extension ./cmd/traffic-extension
+
+.PHONY: docker-build-traffic-extension
+docker-build-traffic-extension: ## Build docker image for traffic-extension.
+	docker build -f dockerfiles/traffic-extension.Dockerfile -t ${TRAFFIX_EXTENSION_IMG} .
 
 ifndef ignore-not-found
   ignore-not-found = false
