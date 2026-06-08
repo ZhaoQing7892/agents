@@ -559,8 +559,10 @@ func recordSandboxMetrics(sandbox *agentsv1alpha1.Sandbox, pod *corev1.Pod) {
 	recordRuntimeContainerAbnormal(namespace, name, pod)
 }
 
-// deleteSandboxMetrics removes all metrics for a sandbox that has been deleted.
-func deleteSandboxMetrics(namespace, name string) {
+// DeleteSandboxMetrics removes all metrics for a sandbox that has been deleted.
+// Exported so that the metricsasync pool (wired in cmd/agent-sandbox-controller)
+// can register it as a CleanupFunc for kind "sandbox".
+func DeleteSandboxMetrics(namespace, name string) {
 	// Observe deletion duration before cleaning up metrics
 	key := namespace + "/" + name
 	if startTime, ok := deletionStartTimes.Load(key); ok {

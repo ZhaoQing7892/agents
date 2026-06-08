@@ -20,9 +20,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -36,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
 	"github.com/openkruise/agents/pkg/controller/sandbox/core"
@@ -52,7 +55,7 @@ func TestAdd_FeatureGateDisabled(t *testing.T) {
 		_ = utilfeature.DefaultMutableFeatureGate.Set("Sandbox=true")
 	}()
 
-	err := Add(nil) // manager is nil, but should never be accessed
+	err := Add(nil, nil) // manager and enqueuer are nil, but should never be accessed
 	if err != nil {
 		t.Errorf("Add() error = %v, expected nil when feature gate is disabled", err)
 	}
@@ -67,7 +70,7 @@ func TestAdd_GVKNotDiscovered(t *testing.T) {
 	}()
 
 	// client.GetGenericClient() returns nil in test, so DiscoverGVK returns false
-	err := Add(nil) // manager is nil, but should never be accessed
+	err := Add(nil, nil) // manager and enqueuer are nil, but should never be accessed
 	if err != nil {
 		t.Errorf("Add() error = %v, expected nil when GVK is not discovered", err)
 	}
@@ -2845,7 +2848,8 @@ func TestReconcile_SandboxNotFoundCleanup(t *testing.T) {
 			Recorder:    fakeRecorder,
 			RateLimiter: rl,
 		}),
-		rateLimiter: rl,
+		rateLimiter:    rl,
+		metricsCleanup: &fakeEnqueuer{},
 	}
 
 	// Set up expectations for a sandbox that will not be found
@@ -3902,4 +3906,49 @@ func TestUpdateSandboxStatus_Upgrading_RevisionUnchanged_NoReset(t *testing.T) {
 	if upgradeCond.Message != "upgrading pod" {
 		t.Errorf("Expected Message %q, got %q", "upgrading pod", upgradeCond.Message)
 	}
+}
+
+// fakeEnqueuer captures Enqueue invocations for assertion.
+type fakeEnqueuer struct {
+	mu    sync.Mutex
+	calls []struct{ Namespace, Name string }
+}
+
+func (f *fakeEnqueuer) Enqueue(namespace, name string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, struct{ Namespace, Name string }{namespace, name})
+}
+
+func (f *fakeEnqueuer) snapshot() []struct{ Namespace, Name string } {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]struct{ Namespace, Name string }, len(f.calls))
+	copy(out, f.calls)
+	return out
+}
+
+func TestReconcile_NotFoundEnqueuesAsyncCleanup(t *testing.T) {
+	scheme := runtime.NewScheme()
+	assert.NoError(t, agentsv1alpha1.AddToScheme(scheme))
+	assert.NoError(t, corev1.AddToScheme(scheme))
+
+	cli := fake.NewClientBuilder().WithScheme(scheme).Build()
+	enq := &fakeEnqueuer{}
+	r := &SandboxReconciler{
+		Client:         cli,
+		Scheme:         scheme,
+		metricsCleanup: enq,
+	}
+
+	res, err := r.Reconcile(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Namespace: "ns", Name: "missing"},
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, reconcile.Result{}, res)
+
+	calls := enq.snapshot()
+	assert.Len(t, calls, 1)
+	assert.Equal(t, "ns", calls[0].Namespace)
+	assert.Equal(t, "missing", calls[0].Name)
 }

@@ -62,7 +62,7 @@ func TestRecordSandboxMetrics_CreatedTimestamp(t *testing.T) {
 	}
 
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "test-sandbox")
+	defer DeleteSandboxMetrics("default", "test-sandbox")
 
 	val := testutil.ToFloat64(sandboxCreated.WithLabelValues("default", "test-sandbox"))
 	expected := float64(now.Unix())
@@ -87,7 +87,7 @@ func TestRecordSandboxMetrics_DeletionTimestamp(t *testing.T) {
 	}
 
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "del-sandbox")
+	defer DeleteSandboxMetrics("default", "del-sandbox")
 
 	val := testutil.ToFloat64(sandboxDeletionTimestamp.WithLabelValues("default", "del-sandbox"))
 	expected := float64(now.Unix())
@@ -109,7 +109,7 @@ func TestRecordSandboxMetrics_NoDeletionTimestamp(t *testing.T) {
 	}
 
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "no-del-sandbox")
+	defer DeleteSandboxMetrics("default", "no-del-sandbox")
 
 	// When no deletion timestamp, the metric should not have been set for this sandbox.
 	// We verify by checking that the gauge count for this label set is 0 after collect.
@@ -151,7 +151,7 @@ func TestRecordSandboxMetrics_StatusPhase(t *testing.T) {
 			}
 
 			recordSandboxMetrics(sandbox, nil)
-			defer deleteSandboxMetrics(ns, name)
+			defer DeleteSandboxMetrics(ns, name)
 
 			// Verify active phase is 1
 			val := testutil.ToFloat64(sandboxStatusPhase.WithLabelValues(ns, name, string(tt.phase)))
@@ -187,7 +187,7 @@ func TestRecordSandboxMetrics_EmptyPhase(t *testing.T) {
 
 	// Should not panic and should skip phase metric recording
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "empty-phase-sandbox")
+	defer DeleteSandboxMetrics("default", "empty-phase-sandbox")
 }
 
 func TestRecordSandboxMetrics_ReadyConditionTrue(t *testing.T) {
@@ -211,7 +211,7 @@ func TestRecordSandboxMetrics_ReadyConditionTrue(t *testing.T) {
 	}
 
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "ready-sandbox")
+	defer DeleteSandboxMetrics("default", "ready-sandbox")
 
 	val := testutil.ToFloat64(sandboxStatusReady.WithLabelValues("default", "ready-sandbox"))
 	if val != 1 {
@@ -245,7 +245,7 @@ func TestRecordSandboxMetrics_ReadyConditionFalse(t *testing.T) {
 	}
 
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "notready-sandbox")
+	defer DeleteSandboxMetrics("default", "notready-sandbox")
 
 	val := testutil.ToFloat64(sandboxStatusReady.WithLabelValues("default", "notready-sandbox"))
 	if val != 0 {
@@ -274,7 +274,7 @@ func TestRecordSandboxMetrics_InplaceUpdateConditionFalse(t *testing.T) {
 	}
 
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "inplace-sandbox")
+	defer DeleteSandboxMetrics("default", "inplace-sandbox")
 
 	// InplaceUpdate=False: inplace_updating should be 1 (negative semantics)
 	val := testutil.ToFloat64(sandboxStatusInplaceUpdating.WithLabelValues("default", "inplace-sandbox"))
@@ -308,7 +308,7 @@ func TestRecordSandboxMetrics_InplaceUpdateConditionTrue(t *testing.T) {
 	}
 
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "inplace-true-sandbox")
+	defer DeleteSandboxMetrics("default", "inplace-true-sandbox")
 
 	// Verify inplace_updating metrics (True → updating=0)
 	doneVal := testutil.ToFloat64(sandboxStatusInplaceUpdating.WithLabelValues("default", "inplace-true-sandbox"))
@@ -339,7 +339,7 @@ func TestRecordSandboxMetrics_PausedConditionFalse(t *testing.T) {
 
 	// Paused=False should not panic and stores start time for duration tracking
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "paused-false-sandbox")
+	defer DeleteSandboxMetrics("default", "paused-false-sandbox")
 }
 
 func TestRecordSandboxMetrics_PausedConditionTrue(t *testing.T) {
@@ -363,7 +363,7 @@ func TestRecordSandboxMetrics_PausedConditionTrue(t *testing.T) {
 	}
 
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "paused-true-sandbox")
+	defer DeleteSandboxMetrics("default", "paused-true-sandbox")
 
 	// Paused=True → unpaused=0, unpaused_time should NOT be set
 	unpausedVal := testutil.ToFloat64(sandboxStatusUnpaused.WithLabelValues("default", "paused-true-sandbox"))
@@ -394,7 +394,7 @@ func TestRecordSandboxMetrics_ResumedConditionFalse(t *testing.T) {
 
 	// Resumed=False should not panic and stores start time for duration tracking
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "resumed-false-sandbox")
+	defer DeleteSandboxMetrics("default", "resumed-false-sandbox")
 }
 
 func TestRecordSandboxMetrics_ResumedConditionTrue(t *testing.T) {
@@ -418,7 +418,7 @@ func TestRecordSandboxMetrics_ResumedConditionTrue(t *testing.T) {
 	}
 
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "resumed-true-sandbox")
+	defer DeleteSandboxMetrics("default", "resumed-true-sandbox")
 
 	// Resumed=True → unresumed=0, unresumed_time should NOT be set
 	unresumedVal := testutil.ToFloat64(sandboxStatusUnresumed.WithLabelValues("default", "resumed-true-sandbox"))
@@ -453,7 +453,7 @@ func TestRecordSandboxMetrics_MultipleConditions(t *testing.T) {
 	}
 
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "multi-cond-sandbox")
+	defer DeleteSandboxMetrics("default", "multi-cond-sandbox")
 
 	readyVal := testutil.ToFloat64(sandboxStatusReady.WithLabelValues("default", "multi-cond-sandbox"))
 	if readyVal != 1 {
@@ -503,7 +503,7 @@ func TestDeleteSandboxMetrics(t *testing.T) {
 	}
 
 	// Delete metrics
-	deleteSandboxMetrics(ns, name)
+	DeleteSandboxMetrics(ns, name)
 
 	// After deletion, WithLabelValues creates a new zero-value gauge.
 	val = testutil.ToFloat64(sandboxCreated.WithLabelValues(ns, name))
@@ -538,7 +538,7 @@ func TestRecordSandboxMetrics_Info(t *testing.T) {
 	}
 
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "info-sandbox")
+	defer DeleteSandboxMetrics("default", "info-sandbox")
 
 	val := testutil.ToFloat64(sandboxInfo.WithLabelValues("default", "info-sandbox",
 		"my-sandboxset", "node-1", "my-template"))
@@ -612,7 +612,7 @@ func TestRecordSandboxMetrics_PausedConditionTrueTimestamp(t *testing.T) {
 			}
 
 			recordSandboxMetrics(sandbox, nil)
-			defer deleteSandboxMetrics("default", sbName)
+			defer DeleteSandboxMetrics("default", sbName)
 
 			if tt.wantPausedTS {
 				ts := testutil.ToFloat64(sandboxStatusUnpausedTime.WithLabelValues("default", sbName))
@@ -657,7 +657,7 @@ func TestRecordSandboxMetrics_ResumedConditionTrueTimestamp(t *testing.T) {
 			}
 
 			recordSandboxMetrics(sandbox, nil)
-			defer deleteSandboxMetrics("default", sbName)
+			defer DeleteSandboxMetrics("default", sbName)
 
 			if tt.wantResumedTS {
 				ts := testutil.ToFloat64(sandboxStatusUnresumedTime.WithLabelValues("default", sbName))
@@ -703,7 +703,7 @@ func TestRecordSandboxMetrics_InplaceUpdateConditionTrueTimestamp(t *testing.T) 
 			}
 
 			recordSandboxMetrics(sandbox, nil)
-			defer deleteSandboxMetrics("default", sbName)
+			defer DeleteSandboxMetrics("default", sbName)
 
 			val := testutil.ToFloat64(sandboxStatusInplaceUpdating.WithLabelValues("default", sbName))
 			if val != tt.wantDone {
@@ -781,7 +781,7 @@ func TestDeleteSandboxMetrics_NewMetrics(t *testing.T) {
 	}
 
 	// Delete and verify cleanup
-	deleteSandboxMetrics(ns, name)
+	DeleteSandboxMetrics(ns, name)
 
 	if v := testutil.ToFloat64(sandboxStatusReady.WithLabelValues(ns, name)); v != 0 {
 		t.Errorf("sandbox_status_ready after delete = %v, want 0", v)
@@ -843,7 +843,7 @@ func TestRecordSandboxMetrics_AllConditions(t *testing.T) {
 	}
 
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics(ns, name)
+	defer DeleteSandboxMetrics(ns, name)
 
 	// Ready=True: ready=1
 	if v := testutil.ToFloat64(sandboxStatusReady.WithLabelValues(ns, name)); v != 1 {
@@ -881,7 +881,7 @@ func TestRecordSandboxMetrics_InfoNoOwner(t *testing.T) {
 	}
 
 	recordSandboxMetrics(sandbox, nil)
-	defer deleteSandboxMetrics("default", "info-no-owner-sandbox")
+	defer DeleteSandboxMetrics("default", "info-no-owner-sandbox")
 
 	// All new labels should be empty string when not set
 	val := testutil.ToFloat64(sandboxInfo.WithLabelValues("default", "info-no-owner-sandbox",
@@ -941,7 +941,7 @@ func TestRecordSandboxMetrics_InfoPartialFields(t *testing.T) {
 			}
 
 			recordSandboxMetrics(sandbox, nil)
-			defer deleteSandboxMetrics("default", sbName)
+			defer DeleteSandboxMetrics("default", sbName)
 
 			val := testutil.ToFloat64(sandboxInfo.WithLabelValues("default", sbName,
 				"", tt.wantNode, tt.wantTemplate))
@@ -1014,7 +1014,7 @@ func TestSandboxCreationToReadyDuration_ObservedOnce(t *testing.T) {
 	}
 
 	// Delete and re-record should observe again
-	deleteSandboxMetrics(ns, name)
+	DeleteSandboxMetrics(ns, name)
 	// After delete, the namespace-level histogram still exists; read the new baseline.
 	baselineAfterDelete := creationToReadyHistogramSum(t, ns)
 	recordSandboxMetrics(sandbox, nil)
@@ -1023,7 +1023,7 @@ func TestSandboxCreationToReadyDuration_ObservedOnce(t *testing.T) {
 		t.Errorf("re-observation after delete: sum delta = %v, want ~%v", delta, expectedDuration)
 	}
 
-	deleteSandboxMetrics(ns, name)
+	DeleteSandboxMetrics(ns, name)
 }
 
 func TestSandboxCreationToReadyDuration_NotObservedWhenNotReady(t *testing.T) {
@@ -1054,7 +1054,7 @@ func TestSandboxCreationToReadyDuration_NotObservedWhenNotReady(t *testing.T) {
 	if afterSum != beforeSum {
 		t.Errorf("not-ready should not observe histogram: sum changed from %v to %v", beforeSum, afterSum)
 	}
-	deleteSandboxMetrics(ns, name)
+	DeleteSandboxMetrics(ns, name)
 }
 
 func TestSandboxInplaceUpdateDuration_ObservedOnce(t *testing.T) {
@@ -1110,7 +1110,7 @@ func TestSandboxInplaceUpdateDuration_ObservedOnce(t *testing.T) {
 	}
 
 	// Cleanup
-	deleteSandboxMetrics(ns, name)
+	DeleteSandboxMetrics(ns, name)
 }
 
 // pauseDurationHistogramSum collects the current sample sum from the pause duration HistogramVec for a given namespace.
@@ -1190,7 +1190,7 @@ func TestSandboxPauseDuration(t *testing.T) {
 	}
 
 	// Cleanup
-	deleteSandboxMetrics(ns, name)
+	DeleteSandboxMetrics(ns, name)
 }
 
 func TestSandboxResumeDuration(t *testing.T) {
@@ -1250,7 +1250,7 @@ func TestSandboxResumeDuration(t *testing.T) {
 	}
 
 	// Cleanup
-	deleteSandboxMetrics(ns, name)
+	DeleteSandboxMetrics(ns, name)
 }
 
 func TestSandboxInplaceUpdateDuration_NotObservedWithoutStartTime(t *testing.T) {
@@ -1283,7 +1283,7 @@ func TestSandboxInplaceUpdateDuration_NotObservedWithoutStartTime(t *testing.T) 
 	if afterSum != beforeSum {
 		t.Errorf("InplaceUpdate=True without prior False should not observe: sum changed from %v to %v", beforeSum, afterSum)
 	}
-	deleteSandboxMetrics(ns, name)
+	DeleteSandboxMetrics(ns, name)
 }
 
 func TestRecordSandboxMetrics_PhaseCompact(t *testing.T) {
@@ -1322,7 +1322,7 @@ func TestRecordSandboxMetrics_PhaseCompact(t *testing.T) {
 		t.Errorf("phase Running after transition = %v, want 0", runningVal)
 	}
 
-	deleteSandboxMetrics(ns, name)
+	DeleteSandboxMetrics(ns, name)
 }
 
 func TestSanitizeLabelName(t *testing.T) {
@@ -1504,7 +1504,7 @@ func TestSandboxCreationTotal(t *testing.T) {
 			},
 		},
 		{
-			name: "deleteSandboxMetrics does not remove namespace-level creation counter",
+			name: "DeleteSandboxMetrics does not remove namespace-level creation counter",
 			setup: func(ns, sbName string) {
 				observedCreationToReady.Delete(ns + "/" + sbName)
 				sandboxCreationTotal.Reset()
@@ -1527,7 +1527,7 @@ func TestSandboxCreationTotal(t *testing.T) {
 				}
 			},
 			verify: func(t *testing.T, ns, sbName string) {
-				deleteSandboxMetrics(ns, sbName)
+				DeleteSandboxMetrics(ns, sbName)
 				// Counter is namespace-level, so it persists after per-sandbox deletion
 				val := counterValue(t, sandboxCreationTotal, ns, "success")
 				if val != 1 {
@@ -1544,7 +1544,7 @@ func TestSandboxCreationTotal(t *testing.T) {
 			tt.setup(ns, sbName)
 			sb := tt.sandboxFunc(ns, sbName)
 			recordSandboxMetrics(sb, nil)
-			defer deleteSandboxMetrics(ns, sbName)
+			defer DeleteSandboxMetrics(ns, sbName)
 			tt.verify(t, ns, sbName)
 		})
 	}
@@ -1683,7 +1683,7 @@ func TestSandboxPauseTotal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ns := "default"
 			sbName := "pause-total-" + tt.name
-			defer deleteSandboxMetrics(ns, sbName)
+			defer DeleteSandboxMetrics(ns, sbName)
 			tt.verify(t, ns, sbName)
 		})
 	}
@@ -1776,7 +1776,7 @@ func TestSandboxResumeTotal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ns := "default"
 			sbName := "resume-total-" + tt.name
-			defer deleteSandboxMetrics(ns, sbName)
+			defer DeleteSandboxMetrics(ns, sbName)
 			tt.verify(t, ns, sbName)
 		})
 	}
@@ -1788,7 +1788,7 @@ func TestSandboxDeletionDuration(t *testing.T) {
 		verify func(t *testing.T, ns, sbName string)
 	}{
 		{
-			name: "deletion duration is observed after deleteSandboxMetrics",
+			name: "deletion duration is observed after DeleteSandboxMetrics",
 			verify: func(t *testing.T, ns, sbName string) {
 				now := time.Now()
 				delTime := metav1.NewTime(now.Add(-2 * time.Second))
@@ -1824,15 +1824,15 @@ func TestSandboxDeletionDuration(t *testing.T) {
 					t.Errorf("deletion duration sample count before delete = %v, want 0", before)
 				}
 
-				// Call deleteSandboxMetrics - this observes duration then deletes the series.
+				// Call DeleteSandboxMetrics - this observes duration then deletes the series.
 				// Since the series is deleted after observation, we verify the code path
 				// executed by checking that deletionStartTimes entry was consumed.
-				deleteSandboxMetrics(ns, sbName)
+				DeleteSandboxMetrics(ns, sbName)
 
 				// Verify deletionStartTimes entry was consumed (proves Observe was called)
 				_, stillExists := deletionStartTimes.Load(key)
 				if stillExists {
-					t.Errorf("deletionStartTimes should be cleaned after deleteSandboxMetrics")
+					t.Errorf("deletionStartTimes should be cleaned after DeleteSandboxMetrics")
 				}
 			},
 		},
@@ -1852,7 +1852,7 @@ func TestSandboxDeletionDuration(t *testing.T) {
 				recordSandboxMetrics(sb, nil)
 
 				before := histogramSampleCount(t, sandboxDeletionDuration, ns)
-				deleteSandboxMetrics(ns, sbName)
+				DeleteSandboxMetrics(ns, sbName)
 				after := histogramSampleCount(t, sandboxDeletionDuration, ns)
 				if after != before {
 					t.Errorf("deletion duration should not be observed without DeletionTimestamp: before=%v, after=%v", before, after)
@@ -1959,7 +1959,7 @@ func TestSandboxStatusAbnormal(t *testing.T) {
 			}
 
 			recordSandboxMetrics(sb, nil)
-			defer deleteSandboxMetrics(ns, sbName)
+			defer DeleteSandboxMetrics(ns, sbName)
 
 			pauseVal := testutil.ToFloat64(sandboxStatusAbnormal.WithLabelValues(ns, sbName, "pause_incomplete"))
 			if pauseVal != tt.wantPauseAbnormal {
@@ -1972,7 +1972,7 @@ func TestSandboxStatusAbnormal(t *testing.T) {
 			}
 
 			// Verify cleanup removes abnormal metrics
-			deleteSandboxMetrics(ns, sbName)
+			DeleteSandboxMetrics(ns, sbName)
 			pauseAfter := testutil.ToFloat64(sandboxStatusAbnormal.WithLabelValues(ns, sbName, "pause_incomplete"))
 			if pauseAfter != 0 {
 				t.Errorf("sandbox_status_abnormal{type=pause_incomplete} after delete = %v, want 0", pauseAfter)
@@ -2035,7 +2035,7 @@ func TestSandboxLabelsMetric_RecordAndDelete(t *testing.T) {
 			},
 		}
 		recordSandboxMetrics(partialSandbox, nil)
-		defer deleteSandboxMetrics(ns2, name2)
+		defer DeleteSandboxMetrics(ns2, name2)
 
 		// env label value should be empty string
 		val := testutil.ToFloat64(sandboxLabels.WithLabelValues(ns2, name2, "myapp", ""))
@@ -2045,7 +2045,7 @@ func TestSandboxLabelsMetric_RecordAndDelete(t *testing.T) {
 	})
 
 	t.Run("delete labels", func(t *testing.T) {
-		deleteSandboxMetrics(ns, name)
+		DeleteSandboxMetrics(ns, name)
 
 		// After deletion, WithLabelValues creates a new zero-value gauge
 		val := testutil.ToFloat64(sandboxLabels.WithLabelValues(ns, name, "myapp", "prod"))
@@ -2208,7 +2208,7 @@ func TestDeleteSandboxMetrics_ClearsRuntimeContainerAbnormal(t *testing.T) {
 		t.Fatalf("precondition: expected 1, got %v", val)
 	}
 
-	deleteSandboxMetrics(ns, name)
+	DeleteSandboxMetrics(ns, name)
 
 	val = testutil.ToFloat64(sandboxRuntimeContainerAbnormal.WithLabelValues(ns, name, "agent-runtime"))
 	if val != 0 {

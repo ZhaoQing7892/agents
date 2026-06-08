@@ -56,9 +56,18 @@ var (
 	sandboxControllerKind = agentsv1alpha1.GroupVersion.WithKind("Sandbox")
 )
 
-func Add(mgr manager.Manager) error {
+// Enqueuer is the contract the Sandbox controller depends on for async
+// metric cleanup. sandboxmetricsgc.Reconciler satisfies it.
+type Enqueuer interface {
+	Enqueue(namespace, name string)
+}
+
+func Add(mgr manager.Manager, metricsCleanup Enqueuer) error {
 	if !utilfeature.DefaultFeatureGate.Enabled(features.SandboxGate) || !discovery.DiscoverGVK(sandboxControllerKind) {
 		return nil
+	}
+	if metricsCleanup == nil {
+		return fmt.Errorf("sandbox: metricsCleanup enqueuer is required")
 	}
 
 	rateLimiter := core.NewRateLimiter()
@@ -71,6 +80,7 @@ func Add(mgr manager.Manager) error {
 			Recorder:    mgr.GetEventRecorderFor("sandbox"),
 			RateLimiter: rateLimiter,
 		}), rateLimiter: rateLimiter,
+		metricsCleanup: metricsCleanup,
 	}).SetupWithManager(mgr)
 	if err != nil {
 		return err
@@ -82,9 +92,10 @@ func Add(mgr manager.Manager) error {
 // SandboxReconciler reconciles a Sandbox object
 type SandboxReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
-	controls    map[string]core.SandboxControl
-	rateLimiter *core.RateLimiter
+	Scheme         *runtime.Scheme
+	controls       map[string]core.SandboxControl
+	rateLimiter    *core.RateLimiter
+	metricsCleanup Enqueuer
 }
 
 // +kubebuilder:rbac:groups=agents.kruise.io,resources=sandboxes,verbs=get;list;watch;create;update;patch;delete
@@ -118,7 +129,7 @@ func (r *SandboxReconciler) Reconcile(ctx context.Context, req ctrl.Request) (cr
 			box.Name = req.NamespacedName.Name
 			core.ResourceVersionExpectations.Delete(box)
 			core.ScaleExpectation.DeleteExpectations(utils.GetControllerKey(box))
-			deleteSandboxMetrics(req.NamespacedName.Namespace, req.NamespacedName.Name)
+			r.metricsCleanup.Enqueue(req.NamespacedName.Namespace, req.NamespacedName.Name)
 		}
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}

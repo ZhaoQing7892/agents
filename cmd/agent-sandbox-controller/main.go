@@ -47,6 +47,7 @@ import (
 	"github.com/openkruise/agents/client"
 	"github.com/openkruise/agents/pkg/controller"
 	sandboxctrl "github.com/openkruise/agents/pkg/controller/sandbox"
+	"github.com/openkruise/agents/pkg/controller/sandboxmetricsgc"
 	"github.com/openkruise/agents/pkg/features"
 	"github.com/openkruise/agents/pkg/utils"
 	utilfeature "github.com/openkruise/agents/pkg/utils/feature"
@@ -119,6 +120,14 @@ func main() {
 		"supporting three states: ip, memory, and filesystem. Format: comma-separated, e.g.: memory,filesystem")
 	flag.StringVar(&metricLabelsAllowlist, "metric-labels-allowlist", "",
 		"Comma-separated list of Sandbox label keys to expose as sandbox_labels metric labels (e.g., app,env,version)")
+
+	var metricsAsyncWorkers int
+	var metricsAsyncQueueCap int
+	flag.IntVar(&metricsAsyncWorkers, "metrics-async-workers", 8,
+		"Concurrent reconciles for the sandbox metric GC controller.")
+	flag.IntVar(&metricsAsyncQueueCap, "metrics-async-queue-cap", 50000,
+		"Buffer size for the sandbox metric GC controller event channel. "+
+			"Sends that would block are counted under sandbox_metrics_gc_dropped_total{reason=\"channel_full\"}.")
 
 	opts := zap.Options{
 		Development: true,
@@ -281,8 +290,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("setup controllers")
-	if err = controller.SetupWithManager(mgr); err != nil {
+	metricsGC := sandboxmetricsgc.NewReconciler(sandboxmetricsgc.Options{
+		Workers:       metricsAsyncWorkers,
+		ChannelBuffer: metricsAsyncQueueCap,
+	})
+	if err := metricsGC.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to setup sandbox metrics GC controller")
+		os.Exit(1)
+	}
+
+	setupLog.Info("setup controllers",
+		"metricsAsyncWorkers", metricsAsyncWorkers,
+		"metricsAsyncQueueCap", metricsAsyncQueueCap)
+	if err = controller.SetupWithManager(mgr, controller.Deps{MetricsCleanup: metricsGC}); err != nil {
 		setupLog.Error(err, "unable to setup controllers")
 		os.Exit(1)
 	}
