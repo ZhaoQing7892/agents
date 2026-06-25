@@ -326,7 +326,7 @@ func (sc *Controller) basicSandboxCreateModifier(ctx context.Context, sbx infra.
 	}
 	sbx.SetAnnotations(annotations)
 
-	// propagate labels to sandbox
+	// propagate labels to sandbox metadata (does not affect pod template hash)
 	labels := sbx.GetLabels()
 	if labels == nil {
 		labels = make(map[string]string)
@@ -336,15 +336,11 @@ func (sc *Controller) basicSandboxCreateModifier(ctx context.Context, sbx infra.
 	}
 	sbx.SetLabels(labels)
 
-	// propagate annotations to podtemplate
-	labels = sbx.GetPodLabels()
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-	for k, v := range request.Extensions.Labels {
-		labels[k] = v
-	}
-	sbx.SetPodLabels(labels)
+	// Propagate request labels to the pod template metadata. This ensures the
+	// sandbox hash includes the labels, and the controller patches the pod metadata
+	// directly for metadata-only changes (no image/resources) without setting the
+	// InplaceUpdate condition.
+	infra.MergePodLabels(sbx, request.Extensions.Labels)
 }
 
 func (sc *Controller) csiMountOptionsConfigRecord(ctx context.Context, sbx infra.Sandbox, request models.NewSandboxRequest) {

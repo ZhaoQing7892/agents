@@ -69,7 +69,7 @@ func ValidateAndInitClaimOptions(opts infra.ClaimSandboxOptions) (infra.ClaimSan
 		}
 	}
 	if opts.InplaceUpdate != nil && opts.InplaceUpdate.Image == "" && opts.InplaceUpdate.Resources == nil {
-		return infra.ClaimSandboxOptions{}, fmt.Errorf("inplace update requires either image or resources to be set")
+		return infra.ClaimSandboxOptions{}, fmt.Errorf("inplace update requires at least one of image or resources to be set")
 	}
 	if opts.InplaceUpdate != nil && opts.InplaceUpdate.Resources != nil {
 		res := opts.InplaceUpdate.Resources
