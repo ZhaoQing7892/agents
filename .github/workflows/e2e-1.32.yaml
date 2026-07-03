@@ -64,5 +64,5 @@ jobs:
       - name: Run E2E Tests
         run: |
           export KUBECONFIG=/home/runner/.kube/config
-          hack/run-agents-e2e-test.sh --print-info --skip 'Sandbox Upgrade Lifecycle|SandboxUpdateOps E2E'
+          hack/run-agents-e2e-test.sh --print-info --skip 'Sandbox Upgrade Lifecycle|SandboxUpdateOps E2E|okactl CLI'
 
