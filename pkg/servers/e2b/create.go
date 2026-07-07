@@ -221,6 +221,18 @@ func (sc *Controller) createSandboxWithClaim(ctx context.Context, request models
 	}
 	log.Info("sandbox created", "id", sbx.GetSandboxID(), "sbx", klog.KObj(sbx),
 		"resourceVersion", sbx.GetResourceVersion(), "totalCost", time.Since(claimStart))
+
+	// Create network CRs (TrafficPolicy) if network config is provided.
+	// Errors are logged but do not fail the sandbox creation.
+	if request.Network != nil {
+		if netErr := sbx.CreateSandboxNetwork(ctx, infra.SandboxNetworkConfig{
+			AllowOut: request.Network.AllowOut,
+			DenyOut:  request.Network.DenyOut,
+		}); netErr != nil {
+			log.Error(netErr, "failed to create network CRs, sandbox is still usable")
+		}
+	}
+
 	return web.ApiResponse[*models.Sandbox]{
 		Code: http.StatusCreated,
 		Body: sc.convertToE2BSandbox(sbx, accessToken, domain),
@@ -306,6 +318,17 @@ func (sc *Controller) createSandboxWithClone(ctx context.Context, request models
 	}
 	log.Info("sandbox cloned", "id", sbx.GetSandboxID(), "sbx", klog.KObj(sbx),
 		"resourceVersion", sbx.GetResourceVersion(), "totalCost", time.Since(start))
+
+	// Create network CRs (TrafficPolicy) if network config is provided.
+	if request.Network != nil {
+		if netErr := sbx.CreateSandboxNetwork(ctx, infra.SandboxNetworkConfig{
+			AllowOut: request.Network.AllowOut,
+			DenyOut:  request.Network.DenyOut,
+		}); netErr != nil {
+			log.Error(netErr, "failed to create network CRs, sandbox is still usable")
+		}
+	}
+
 	return web.ApiResponse[*models.Sandbox]{
 		Code: http.StatusCreated,
 		Body: sc.convertToE2BSandbox(sbx, utils.GetAccessToken(sbx), domain),
@@ -370,6 +393,16 @@ func (sc *Controller) parseCreateSandboxRequest(r *http.Request) (models.NewSand
 		}
 	}
 
+	// Validate and build network config.
+	networkConfig, err := validateAndBuildNetworkConfig(request.AllowInternetAccess, request.Network)
+	if err != nil {
+		return request, &web.ApiError{
+			Code:    http.StatusBadRequest,
+			Message: err.Error(),
+		}
+	}
+	request.Network = networkConfig
+
 	return request, nil
 }
 
@@ -416,6 +449,12 @@ func (sc *Controller) basicSandboxCreateModifier(ctx context.Context, sbx infra.
 	// directly for metadata-only changes (no image/resources) without setting the
 	// InplaceUpdate condition.
 	infra.MergePodLabels(sbx, request.Extensions.Labels)
+
+	// Inject sandbox-id label into pod template so that TrafficPolicy CRs can
+	// select this pod via label selector.
+	infra.MergePodLabels(sbx, map[string]string{
+		labelSandboxID: sbx.GetSandboxID(),
+	})
 }
 
 func (sc *Controller) csiMountOptionsConfigRecord(ctx context.Context, sbx infra.Sandbox, request models.NewSandboxRequest) {
