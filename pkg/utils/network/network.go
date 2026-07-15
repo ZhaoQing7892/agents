@@ -62,14 +62,11 @@ func ContainsAllTrafficCIDR(cidrs []string) bool {
 	return false
 }
 
-// fqdnRegex matches fully qualified domain names with an optional wildcard prefix.
-// Each label must start and end with an alphanumeric character and may contain
-// hyphens in between (max 63 chars per label). The TLD must be at least 2
-// alphabetic characters.
-var fqdnRegex = regexp.MustCompile(`^(\*\.)?([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$`)
+// fqdnRegex matches FQDNs. Wildcards are not supported: the traffic-extension
+// resolves FQDNs to IPs at runtime, and wildcards cannot resolve to a concrete IP.
+var fqdnRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$`)
 
-// IsFQDN returns true if the entry is a valid fully qualified domain name.
-// Supports wildcard domains with a "*." prefix (e.g., "*.example.com").
+// IsFQDN returns true if the entry is a valid FQDN. Wildcard domains are not supported.
 func IsFQDN(entry string) bool {
 	return fqdnRegex.MatchString(entry)
 }

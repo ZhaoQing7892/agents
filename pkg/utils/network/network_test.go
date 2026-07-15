@@ -136,9 +136,11 @@ func TestIsFQDN(t *testing.T) {
 	}{
 		{name: "simple domain", entry: "example.com", expect: true},
 		{name: "multi-level domain", entry: "api.openai.com", expect: true},
-		{name: "wildcard domain", entry: "*.example.com", expect: true},
-		{name: "wildcard multi-level", entry: "*.api.openai.com", expect: true},
 		{name: "domain with hyphen", entry: "my-site.example.org", expect: true},
+		{name: "deep nested domain", entry: "sub1.sub2.sub3.example.com", expect: true},
+		{name: "wildcard domain not supported", entry: "*.example.com", expect: false},
+		{name: "wildcard multi-level not supported", entry: "*.api.openai.com", expect: false},
+		{name: "wildcard without dot is not FQDN", entry: "*example.com", expect: false},
 		{name: "single label is not FQDN", entry: "localhost", expect: false},
 		{name: "empty string", entry: "", expect: false},
 		{name: "IP address is not FQDN", entry: "8.8.8.8", expect: false},
@@ -146,7 +148,6 @@ func TestIsFQDN(t *testing.T) {
 		{name: "TLD too short", entry: "example.a", expect: false},
 		{name: "label starts with hyphen", entry: "-bad.example.com", expect: false},
 		{name: "double dots", entry: "..bad.com", expect: false},
-		{name: "wildcard without dot is not FQDN", entry: "*example.com", expect: false},
 		{name: "garbage string", entry: ">>>invalid", expect: false},
 		{name: "not-an-ip is not FQDN", entry: "not-an-ip", expect: false},
 	}

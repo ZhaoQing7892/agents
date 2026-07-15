@@ -123,13 +123,33 @@ func TestValidateAllowOut(t *testing.T) {
 			expectError: "",
 		},
 		{
-			name:        "valid wildcard domain entries",
+			name:        "wildcard prefix rejected",
 			allowOut:    []string{"*.example.com", "*.openai.com"},
-			expectError: "",
+			expectError: "wildcard domains are not supported",
+		},
+		{
+			name:        "wildcard in middle rejected",
+			allowOut:    []string{"api.*.github.com"},
+			expectError: "wildcard domains are not supported",
+		},
+		{
+			name:        "wildcard at end rejected",
+			allowOut:    []string{"example.com.*"},
+			expectError: "wildcard domains are not supported",
+		},
+		{
+			name:        "wildcard without dot rejected",
+			allowOut:    []string{"*example.com"},
+			expectError: "wildcard domains are not supported",
+		},
+		{
+			name:        "wildcard mixed with valid entries rejected",
+			allowOut:    []string{"10.0.0.0/8", "8.8.8.8", "api.example.com", "*.github.com"},
+			expectError: "wildcard domains are not supported",
 		},
 		{
 			name:        "valid mixed CIDR IP and domain",
-			allowOut:    []string{"10.0.0.0/8", "8.8.8.8", "api.example.com", "*.github.com"},
+			allowOut:    []string{"10.0.0.0/8", "8.8.8.8", "api.example.com", "github.com"},
 			expectError: "",
 		},
 		{
@@ -376,14 +396,24 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "",
 		},
 		{
-			name:                "mixed allowOut (CIDR + wildcard domain) and mixed denyOut (CIDR + bare IP): valid",
+			name:                "wildcard domain in allowOut rejected",
 			allowInternetAccess: nil,
 			network: &models.SandboxNetworkConfig{
 				AllowOut: []string{"192.168.1.0/24", "*.openai.com"},
 				DenyOut:  []string{"172.16.0.0/12", "1.1.1.1"},
 			},
+			wantNil:     true,
+			expectError: "wildcard domains are not supported",
+		},
+		{
+			name:                "mixed allowOut (CIDR + domain) and mixed denyOut (CIDR + bare IP): valid",
+			allowInternetAccess: nil,
+			network: &models.SandboxNetworkConfig{
+				AllowOut: []string{"192.168.1.0/24", "api.openai.com"},
+				DenyOut:  []string{"172.16.0.0/12", "1.1.1.1"},
+			},
 			wantNil:     false,
-			wantAllow:   []string{"192.168.1.0/24", "*.openai.com"},
+			wantAllow:   []string{"192.168.1.0/24", "api.openai.com"},
 			wantDeny:    []string{"172.16.0.0/12", "1.1.1.1"},
 			expectError: "",
 		},

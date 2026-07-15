@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"k8s.io/klog/v2"
 
@@ -29,9 +30,13 @@ import (
 	"github.com/openkruise/agents/pkg/utils/network"
 )
 
-// validateAllowOut checks that all allowOut entries are valid CIDR, IP, or FQDN.
+// validateAllowOut checks that allowOut entries are valid CIDR, IP, or FQDN.
+// Wildcard domains are not supported.
 func validateAllowOut(allowOut []string) error {
 	for _, entry := range allowOut {
+		if strings.Contains(entry, "*") {
+			return fmt.Errorf("invalid allowOut entry: %q wildcard domains are not supported, use a concrete domain instead", entry)
+		}
 		if !network.IsCIDROrIP(entry) && !network.IsFQDN(entry) {
 			return fmt.Errorf("invalid allowOut entry: %q is not a valid CIDR, IP, or domain", entry)
 		}
