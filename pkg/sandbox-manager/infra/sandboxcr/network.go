@@ -2,7 +2,7 @@
 Copyright 2026.
 
 Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except compliance with the License.
+you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
@@ -87,7 +87,10 @@ func buildTrafficPolicy(allowOutCIDRs, allowOutDomains, denyOut []string, namesp
 		if !network.ContainsAllTrafficCIDR(allowOutCIDRs) && !network.ContainsAllTrafficCIDR(denyOut) {
 			rules = append(rules, agentsv1alpha1.TrafficPolicyRule{
 				Action: agentsv1alpha1.RuleActionReject,
-				To:     []agentsv1alpha1.TrafficPolicyPeer{{CIDR: network.AllTrafficCIDR}},
+				To: []agentsv1alpha1.TrafficPolicyPeer{
+					{CIDR: network.AllTrafficCIDR},
+					{CIDR: network.AllTrafficCIDRIPv6},
+				},
 			})
 		}
 	} else {
@@ -115,7 +118,7 @@ func buildTrafficPolicy(allowOutCIDRs, allowOutDomains, denyOut []string, namesp
 			Priority: 1000,
 			Selector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					agentsv1alpha1.LabelSandboxUID: string(sandbox.UID),
+					agentsv1alpha1.LabelSandboxName: sandbox.Name,
 				},
 			},
 			Egress: &agentsv1alpha1.TrafficPolicyDirection{
@@ -123,16 +126,6 @@ func buildTrafficPolicy(allowOutCIDRs, allowOutDomains, denyOut []string, namesp
 			},
 		},
 	}
-}
-
-// ensureSandboxUIDLabel patches the sandbox UID label into the pod template
-// so that TrafficPolicy Spec.Selector can match this pod.
-func (s *Sandbox) ensureSandboxUIDLabel(ctx context.Context) error {
-	patch := client.MergeFrom(s.Sandbox.DeepCopy())
-	infra.MergePodLabels(s, map[string]string{
-		agentsv1alpha1.LabelSandboxUID: string(s.GetUID()),
-	})
-	return s.Cache.GetClient().Patch(ctx, s.Sandbox, patch)
 }
 
 // CreateNetworkPolicy creates a TrafficPolicy CR for the sandbox.
@@ -146,10 +139,6 @@ func (s *Sandbox) CreateNetworkPolicy(ctx context.Context, netConfig infra.Sandb
 	namespace := s.GetNamespace()
 
 	allowCIDRs, allowDomains := network.SplitAllowOut(netConfig.AllowOut)
-
-	if err := s.ensureSandboxUIDLabel(ctx); err != nil {
-		return fmt.Errorf("failed to patch sandbox with UID label: %w", err)
-	}
 
 	tp := buildTrafficPolicy(allowCIDRs, allowDomains, netConfig.DenyOut, namespace, sandboxID, s.Sandbox)
 	if tp != nil {
@@ -171,10 +160,6 @@ func (s *Sandbox) UpdateNetworkPolicy(ctx context.Context, netConfig infra.Sandb
 	namespace := s.GetNamespace()
 
 	allowCIDRs, allowDomains := network.SplitAllowOut(netConfig.AllowOut)
-
-	if err := s.ensureSandboxUIDLabel(ctx); err != nil {
-		return fmt.Errorf("failed to patch sandbox with UID label: %w", err)
-	}
 
 	// --- Reconcile TrafficPolicy ---
 	tpList := &agentsv1alpha1.TrafficPolicyList{}
@@ -227,7 +212,7 @@ func (s *Sandbox) UpdateNetworkPolicy(ctx context.Context, netConfig infra.Sandb
 }
 
 // SelectNetworkPolicy queries the existing TrafficPolicy CR and returns the
-// effective network configuration. Both CIDR and FQDN entries are read back
+// all network configuration. Both CIDR and FQDN entries are read back
 // from the single TrafficPolicy CR.
 func (s *Sandbox) SelectNetworkPolicy(ctx context.Context) (*infra.SandboxNetworkConfig, error) {
 	log := klog.FromContext(ctx).WithValues("sandbox", klog.KObj(s))
@@ -257,22 +242,8 @@ func (s *Sandbox) SelectNetworkPolicy(ctx context.Context) (*infra.SandboxNetwor
 	for _, rule := range tp.Spec.Egress.Rules {
 		switch rule.Action {
 		case agentsv1alpha1.RuleActionAllow:
-			// Check if the rule contains FQDN entries, which means the
-			// DNS server CIDR may have been auto-injected by buildTrafficPolicy.
-			hasFQDN := false
-			for _, peer := range rule.To {
-				if peer.FQDN != "" {
-					hasFQDN = true
-					break
-				}
-			}
 			for _, peer := range rule.To {
 				if peer.CIDR != "" {
-					// Skip the auto-injected DNS server CIDR so the read-back
-					// is transparent to the user.
-					if hasFQDN && peer.CIDR == network.DNSServerCIDR {
-						continue
-					}
 					config.AllowOut = append(config.AllowOut, peer.CIDR)
 				}
 				if peer.FQDN != "" {
@@ -281,9 +252,6 @@ func (s *Sandbox) SelectNetworkPolicy(ctx context.Context) (*infra.SandboxNetwor
 			}
 		case agentsv1alpha1.RuleActionReject:
 			for _, peer := range rule.To {
-				if peer.CIDR == network.AllTrafficCIDR && len(rule.To) == 1 {
-					continue
-				}
 				if peer.CIDR != "" {
 					config.DenyOut = append(config.DenyOut, peer.CIDR)
 				}

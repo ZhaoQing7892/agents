@@ -55,22 +55,30 @@ func validateDenyOut(denyOut []string) error {
 }
 
 // applyAllowInternetAccess merges the allowInternetAccess flag into denyOut.
+// When internet access is disabled, both IPv4 (0.0.0.0/0) and IPv6 (::/0).
 func applyAllowInternetAccess(allowInternetAccess *bool, denyOut []string) []string {
 	if allowInternetAccess == nil || *allowInternetAccess {
 		return denyOut
 	}
-	for _, entry := range denyOut {
-		if entry == network.AllTrafficCIDR {
-			return denyOut
-		}
+	hasIPv4 := network.ContainsCIDR(denyOut, network.AllTrafficCIDR)
+	hasIPv6 := network.ContainsCIDR(denyOut, network.AllTrafficCIDRIPv6)
+	if hasIPv4 && hasIPv6 {
+		return denyOut
 	}
-	return append(denyOut, network.AllTrafficCIDR)
+	result := denyOut
+	if !hasIPv4 {
+		result = append(result, network.AllTrafficCIDR)
+	}
+	if !hasIPv6 {
+		result = append(result, network.AllTrafficCIDRIPv6)
+	}
+	return result
 }
 
 // validateAndBuildNetworkConfig is the single entry point for validating raw
 // network parameters and producing a normalized SandboxNetworkConfig ready for CR creation.
 func validateAndBuildNetworkConfig(allowInternetAccess *bool, netConfig *models.SandboxNetworkConfig) (*models.SandboxNetworkConfig, error) {
-	// Step 1: Merge allowInternetAccess: false → denyOut: ["0.0.0.0/0"]
+	// Step 1: Merge allowInternetAccess: false → denyOut: ["0.0.0.0/0", "::/0"]
 	if allowInternetAccess != nil && !*allowInternetAccess {
 		if netConfig == nil {
 			netConfig = &models.SandboxNetworkConfig{}

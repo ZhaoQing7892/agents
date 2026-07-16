@@ -28,6 +28,10 @@ import (
 // deny-all entry when allowInternetAccess is false.
 const AllTrafficCIDR = "0.0.0.0/0"
 
+// AllTrafficCIDRIPv6 represents all IPv6 addresses (::/0). It is used alongside
+// AllTrafficCIDR to block all traffic on dual-stack clusters.
+const AllTrafficCIDRIPv6 = "::/0"
+
 // DNSServerCIDR is the default DNS server CIDR that is automatically allowed
 // when allowOut contains domain entries, to ensure DNS resolution works under
 // default-deny.
@@ -55,7 +59,7 @@ func ContainsCIDR(cidrs []string, target string) bool {
 // ContainsAllTrafficCIDR returns true if the CIDR list contains 0.0.0.0/0 or ::/0.
 func ContainsAllTrafficCIDR(cidrs []string) bool {
 	for _, cidr := range cidrs {
-		if cidr == AllTrafficCIDR || cidr == "::/0" {
+		if cidr == AllTrafficCIDR || cidr == AllTrafficCIDRIPv6 {
 			return true
 		}
 	}

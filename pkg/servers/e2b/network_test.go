@@ -234,28 +234,40 @@ func TestApplyAllowInternetAccess(t *testing.T) {
 			wantDenyOut:         []string{"10.0.0.0/8"},
 		},
 		{
-			name:                "false: adds 0.0.0.0/0",
+			name:                "false: adds 0.0.0.0/0 and ::/0",
 			allowInternetAccess: &falseVal,
 			denyOut:             []string{"10.0.0.0/8"},
-			wantDenyOut:         []string{"10.0.0.0/8", "0.0.0.0/0"},
+			wantDenyOut:         []string{"10.0.0.0/8", "0.0.0.0/0", "::/0"},
 		},
 		{
-			name:                "false with empty denyOut: adds 0.0.0.0/0",
+			name:                "false with empty denyOut: adds 0.0.0.0/0 and ::/0",
 			allowInternetAccess: &falseVal,
 			denyOut:             nil,
-			wantDenyOut:         []string{"0.0.0.0/0"},
+			wantDenyOut:         []string{"0.0.0.0/0", "::/0"},
 		},
 		{
-			name:                "false with existing 0.0.0.0/0: not duplicated",
+			name:                "false with existing 0.0.0.0/0: adds ::/0",
 			allowInternetAccess: &falseVal,
 			denyOut:             []string{"0.0.0.0/0"},
-			wantDenyOut:         []string{"0.0.0.0/0"},
+			wantDenyOut:         []string{"0.0.0.0/0", "::/0"},
 		},
 		{
-			name:                "false with existing 0.0.0.0/0 among others: not duplicated",
+			name:                "false with existing ::/0: adds 0.0.0.0/0",
+			allowInternetAccess: &falseVal,
+			denyOut:             []string{"::/0"},
+			wantDenyOut:         []string{"::/0", "0.0.0.0/0"},
+		},
+		{
+			name:                "false with existing both: not duplicated",
+			allowInternetAccess: &falseVal,
+			denyOut:             []string{"0.0.0.0/0", "::/0"},
+			wantDenyOut:         []string{"0.0.0.0/0", "::/0"},
+		},
+		{
+			name:                "false with existing 0.0.0.0/0 among others: adds ::/0",
 			allowInternetAccess: &falseVal,
 			denyOut:             []string{"10.0.0.0/8", "0.0.0.0/0", "8.8.8.8"},
-			wantDenyOut:         []string{"10.0.0.0/8", "0.0.0.0/0", "8.8.8.8"},
+			wantDenyOut:         []string{"10.0.0.0/8", "0.0.0.0/0", "8.8.8.8", "::/0"},
 		},
 	}
 
@@ -317,15 +329,15 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "",
 		},
 		{
-			name:                "false allowInternetAccess, nil network: creates config with 0.0.0.0/0",
+			name:                "false allowInternetAccess, nil network: creates config with 0.0.0.0/0 and ::/0",
 			allowInternetAccess: &falseVal,
 			network:             nil,
 			wantNil:             false,
-			wantDeny:            []string{"0.0.0.0/0"},
+			wantDeny:            []string{"0.0.0.0/0", "::/0"},
 			expectError:         "",
 		},
 		{
-			name:                "false allowInternetAccess, network with allowOut: merges 0.0.0.0/0 into denyOut",
+			name:                "false allowInternetAccess, network with allowOut: merges 0.0.0.0/0 and ::/0 into denyOut",
 			allowInternetAccess: &falseVal,
 			network: &models.SandboxNetworkConfig{
 				AllowOut: []string{"10.0.0.0/8"},
@@ -333,17 +345,17 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			},
 			wantNil:     false,
 			wantAllow:   []string{"10.0.0.0/8"},
-			wantDeny:    []string{"8.8.4.4", "0.0.0.0/0"},
+			wantDeny:    []string{"8.8.4.4", "0.0.0.0/0", "::/0"},
 			expectError: "",
 		},
 		{
-			name:                "false allowInternetAccess, network with existing 0.0.0.0/0: no duplicate",
+			name:                "false allowInternetAccess, network with existing 0.0.0.0/0: adds ::/0",
 			allowInternetAccess: &falseVal,
 			network: &models.SandboxNetworkConfig{
 				DenyOut: []string{"0.0.0.0/0"},
 			},
 			wantNil:     false,
-			wantDeny:    []string{"0.0.0.0/0"},
+			wantDeny:    []string{"0.0.0.0/0", "::/0"},
 			expectError: "",
 		},
 		{

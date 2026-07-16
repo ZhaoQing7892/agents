@@ -435,11 +435,18 @@ func (sc *Controller) basicSandboxCreateModifier(ctx context.Context, sbx infra.
 	}
 	sbx.SetLabels(labels)
 
+	podLabels := make(map[string]string)
+	for k, v := range request.Extensions.Labels {
+		podLabels[k] = v
+	}
+	// Inject the sandbox-name label onto the pod
+	podLabels[agentsv1alpha1.LabelSandboxName] = sbx.GetName()
+
 	// Propagate request labels to the pod template metadata. This ensures the
 	// sandbox hash includes the labels, and the controller patches the pod metadata
 	// directly for metadata-only changes (no image/resources) without setting the
 	// InplaceUpdate condition.
-	infra.MergePodLabels(sbx, request.Extensions.Labels)
+	infra.MergePodLabels(sbx, podLabels)
 }
 
 func (sc *Controller) csiMountOptionsConfigRecord(ctx context.Context, sbx infra.Sandbox, request models.NewSandboxRequest) {
