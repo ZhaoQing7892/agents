@@ -30,9 +30,16 @@ import (
 	"github.com/openkruise/agents/pkg/utils/network"
 )
 
+// maxNetworkEntriesPerList caps entries per allowOut/denyOut list to prevent
+// oversized TrafficPolicy CRs from exhausting apiserver resources.
+const maxNetworkEntriesPerList = 100
+
 // validateAllowOut checks that allowOut entries are valid CIDR, IP, or FQDN.
 // Wildcard domains are not supported.
 func validateAllowOut(allowOut []string) error {
+	if len(allowOut) > maxNetworkEntriesPerList {
+		return fmt.Errorf("allowOut list exceeds maximum of %d entries", maxNetworkEntriesPerList)
+	}
 	for _, entry := range allowOut {
 		if strings.Contains(entry, "*") {
 			return fmt.Errorf("invalid allowOut entry: %q wildcard domains are not supported, use a concrete domain instead", entry)
@@ -46,6 +53,9 @@ func validateAllowOut(allowOut []string) error {
 
 // validateDenyOut checks that all denyOut entries are valid CIDR or bare IP addresses.
 func validateDenyOut(denyOut []string) error {
+	if len(denyOut) > maxNetworkEntriesPerList {
+		return fmt.Errorf("denyOut list exceeds maximum of %d entries", maxNetworkEntriesPerList)
+	}
 	for _, entry := range denyOut {
 		if !network.IsCIDROrIP(entry) {
 			return fmt.Errorf("domains are not supported in denyOut: %q is not a valid CIDR or IP address", entry)
@@ -55,7 +65,7 @@ func validateDenyOut(denyOut []string) error {
 }
 
 // applyAllowInternetAccess merges the allowInternetAccess flag into denyOut.
-// When internet access is disabled, both IPv4 (0.0.0.0/0) and IPv6 (::/0).
+// When internet access is disabled, both IPv4 (0.0.0.0/0) and IPv6 (::/0) ranges are added to the deny list.
 func applyAllowInternetAccess(allowInternetAccess *bool, denyOut []string) []string {
 	if allowInternetAccess == nil || *allowInternetAccess {
 		return denyOut

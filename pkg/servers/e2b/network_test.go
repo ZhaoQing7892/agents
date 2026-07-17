@@ -17,13 +17,32 @@ limitations under the License.
 package e2b
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
+	"github.com/openkruise/agents/pkg/cache"
+	"github.com/openkruise/agents/pkg/servers/e2b/keys"
 	"github.com/openkruise/agents/pkg/servers/e2b/models"
 )
+
+// generateCIDREntries returns n unique valid CIDR entries for testing
+// entry-count limits.
+func generateCIDREntries(n int) []string {
+	entries := make([]string, n)
+	for i := range entries {
+		entries[i] = fmt.Sprintf("10.%d.%d.0/24", i/256, i%256)
+	}
+	return entries
+}
 
 func TestValidateDenyOut(t *testing.T) {
 	tests := []struct {
@@ -85,6 +104,11 @@ func TestValidateDenyOut(t *testing.T) {
 			name:        "all-traffic CIDR is valid",
 			denyOut:     []string{"0.0.0.0/0"},
 			expectError: "",
+		},
+		{
+			name:        "denyOut exceeds max entries",
+			denyOut:     generateCIDREntries(maxNetworkEntriesPerList + 1),
+			expectError: "denyOut list exceeds maximum",
 		},
 	}
 
@@ -186,6 +210,11 @@ func TestValidateAllowOut(t *testing.T) {
 			name:        "invalid entry mixed with valid rejected",
 			allowOut:    []string{"10.0.0.0/8", ">>>bad"},
 			expectError: "invalid allowOut entry",
+		},
+		{
+			name:        "allowOut exceeds max entries",
+			allowOut:    generateCIDREntries(maxNetworkEntriesPerList + 1),
+			expectError: "allowOut list exceeds maximum",
 		},
 	}
 
@@ -467,6 +496,24 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			wantNil:     true,
 			expectError: "invalid allowOut entry",
 		},
+		{
+			name:                "allowOut exceeds max entries",
+			allowInternetAccess: nil,
+			network: &models.SandboxNetworkConfig{
+				AllowOut: generateCIDREntries(maxNetworkEntriesPerList + 1),
+			},
+			wantNil:     true,
+			expectError: "allowOut list exceeds maximum",
+		},
+		{
+			name:                "denyOut exceeds max entries",
+			allowInternetAccess: nil,
+			network: &models.SandboxNetworkConfig{
+				DenyOut: generateCIDREntries(maxNetworkEntriesPerList + 1),
+			},
+			wantNil:     true,
+			expectError: "denyOut list exceeds maximum",
+		},
 	}
 
 	for _, tt := range tests {
@@ -486,6 +533,206 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			require.NotNil(t, got)
 			assert.Equal(t, tt.wantAllow, got.AllowOut)
 			assert.Equal(t, tt.wantDeny, got.DenyOut)
+		})
+	}
+}
+
+// TestUpdateSandboxNetwork_InvalidBody verifies that a malformed JSON body
+// results in a 400 Bad Request response.
+func TestUpdateSandboxNetwork_InvalidBody(t *testing.T) {
+	controller, _, teardown := Setup(t)
+	defer teardown()
+	user := &models.CreatedTeamAPIKey{
+		ID:   keys.AdminKeyID,
+		Key:  InitKey,
+		Name: "admin",
+	}
+
+	// Construct a request with invalid JSON body that cannot be decoded.
+	req, err := http.NewRequest(http.MethodPut,
+		fmt.Sprintf("http://127.0.0.1:%d", TestServerPort),
+		strings.NewReader("invalid json"))
+	require.NoError(t, err)
+	req.SetPathValue("sandboxID", "non-existent--sandbox")
+	req = req.WithContext(context.WithValue(req.Context(), "user", user))
+
+	resp, apiErr := controller.UpdateSandboxNetwork(req)
+	require.NotNil(t, apiErr)
+	assert.Equal(t, http.StatusBadRequest, apiErr.Code)
+	assert.Contains(t, apiErr.Message, "Failed to decode request body")
+	_ = resp
+}
+
+// TestUpdateSandboxNetwork_ValidationError verifies that invalid network
+// parameters are rejected with a 400 Bad Request before the sandbox is looked up.
+func TestUpdateSandboxNetwork_ValidationError(t *testing.T) {
+	controller, _, teardown := Setup(t)
+	defer teardown()
+	user := &models.CreatedTeamAPIKey{
+		ID:   keys.AdminKeyID,
+		Key:  InitKey,
+		Name: "admin",
+	}
+
+	tests := []struct {
+		name        string
+		req         models.SandboxNetworkUpdateConfig
+		expectError string
+	}{
+		{
+			name: "wildcard domain in allowOut rejected",
+			req: models.SandboxNetworkUpdateConfig{
+				AllowOut: []string{"*.example.com"},
+			},
+			expectError: "wildcard domains are not supported",
+		},
+		{
+			name: "domain in denyOut rejected",
+			req: models.SandboxNetworkUpdateConfig{
+				DenyOut: []string{"example.com"},
+			},
+			expectError: "domains are not supported in denyOut",
+		},
+		{
+			name: "invalid allowOut entry rejected",
+			req: models.SandboxNetworkUpdateConfig{
+				AllowOut: []string{">>>invalid"},
+			},
+			expectError: "invalid allowOut entry",
+		},
+		{
+			name: "allowOut exceeds max entries",
+			req: models.SandboxNetworkUpdateConfig{
+				AllowOut: generateCIDREntries(maxNetworkEntriesPerList + 1),
+			},
+			expectError: "allowOut list exceeds maximum",
+		},
+		{
+			name: "denyOut exceeds max entries",
+			req: models.SandboxNetworkUpdateConfig{
+				DenyOut: generateCIDREntries(maxNetworkEntriesPerList + 1),
+			},
+			expectError: "denyOut list exceeds maximum",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, apiErr := controller.UpdateSandboxNetwork(NewRequest(t, nil, tt.req, map[string]string{
+				"sandboxID": "non-existent--sandbox",
+			}, user))
+			require.NotNil(t, apiErr)
+			assert.Equal(t, http.StatusBadRequest, apiErr.Code)
+			assert.Contains(t, apiErr.Message, tt.expectError)
+			_ = resp
+		})
+	}
+}
+
+// TestUpdateSandboxNetwork_SandboxNotFound verifies that updating the network
+// of a non-existent sandbox returns an error.
+func TestUpdateSandboxNetwork_SandboxNotFound(t *testing.T) {
+	controller, _, teardown := Setup(t)
+	defer teardown()
+	user := &models.CreatedTeamAPIKey{
+		ID:   keys.AdminKeyID,
+		Key:  InitKey,
+		Name: "admin",
+	}
+
+	resp, apiErr := controller.UpdateSandboxNetwork(NewRequest(t, nil, models.SandboxNetworkUpdateConfig{
+		AllowOut: []string{"1.2.3.4"},
+	}, map[string]string{
+		"sandboxID": "non-existent--sandbox",
+	}, user))
+	require.NotNil(t, apiErr)
+	assert.Contains(t, apiErr.Message, "Cannot get sandbox")
+	_ = resp
+}
+
+// TestUpdateSandboxNetwork_Success verifies successful network updates,
+// including TrafficPolicy CR creation and deletion.
+func TestUpdateSandboxNetwork_Success(t *testing.T) {
+	controller, _, teardown := Setup(t)
+	defer teardown()
+	templateName := "test-network-template"
+	cleanup := CreateSandboxPool(t, controller, templateName, 10)
+	defer cleanup()
+	user := &models.CreatedTeamAPIKey{
+		ID:   keys.AdminKeyID,
+		Key:  InitKey,
+		Name: "admin",
+	}
+
+	createResp, err := controller.CreateSandbox(NewRequest(t, nil, models.NewSandboxRequest{
+		TemplateID: templateName,
+		Metadata: map[string]string{
+			models.ExtensionKeySkipInitRuntime: agentsv1alpha1.True,
+		},
+	}, nil, user))
+	require.Nil(t, err)
+	sandboxID := createResp.Body.SandboxID
+
+	tests := []struct {
+		name       string
+		req        models.SandboxNetworkUpdateConfig
+		expectCode int
+		expectTP   bool // whether a TrafficPolicy CR should exist after the update
+	}{
+		{
+			name: "update with allowOut and denyOut creates TP",
+			req: models.SandboxNetworkUpdateConfig{
+				AllowOut: []string{"1.2.3.4"},
+				DenyOut:  []string{"10.0.0.0/8"},
+			},
+			expectCode: http.StatusNoContent,
+			expectTP:   true,
+		},
+		{
+			name: "update with allowInternetAccess false creates TP",
+			req: models.SandboxNetworkUpdateConfig{
+				AllowInternetAccess: ptr.To(false),
+			},
+			expectCode: http.StatusNoContent,
+			expectTP:   true,
+		},
+		{
+			name: "update with FQDN in allowOut creates TP",
+			req: models.SandboxNetworkUpdateConfig{
+				AllowOut: []string{"api.example.com"},
+			},
+			expectCode: http.StatusNoContent,
+			expectTP:   true,
+		},
+		{
+			name:       "update with empty config clears TP",
+			req:        models.SandboxNetworkUpdateConfig{},
+			expectCode: http.StatusNoContent,
+			expectTP:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, apiErr := controller.UpdateSandboxNetwork(NewRequest(t, nil, tt.req, map[string]string{
+				"sandboxID": sandboxID,
+			}, user))
+			require.Nil(t, apiErr)
+			assert.Equal(t, tt.expectCode, resp.Code)
+
+			// Verify TrafficPolicy CR state matches expectations.
+			fc := getTestCRClient(controller)
+			tpList := &agentsv1alpha1.TrafficPolicyList{}
+			listErr := fc.List(t.Context(), tpList,
+				ctrlclient.InNamespace(Namespace),
+				ctrlclient.MatchingFields{cache.IndexTrafficPolicySandboxID: sandboxID},
+			)
+			require.NoError(t, listErr)
+			if tt.expectTP {
+				assert.Len(t, tpList.Items, 1, "expected one TrafficPolicy CR")
+			} else {
+				assert.Empty(t, tpList.Items, "expected no TrafficPolicy CRs")
+			}
 		})
 	}
 }

@@ -21,6 +21,7 @@ package network
 import (
 	"net"
 	"regexp"
+	"strings"
 )
 
 // AllTrafficCIDR represents all IPv4 addresses (0.0.0.0/0). It is used both
@@ -87,15 +88,15 @@ func SplitAllowOut(allowOut []string) (cidrs, domains []string) {
 	return cidrs, domains
 }
 
-// NormalizeToCIDR converts a bare IP to CIDR notation.
-// IPv4 becomes /32, IPv6 becomes /128.
-// If the entry is already a CIDR, it is returned as-is.
+// NormalizeToCIDR converts a bare IP to CIDR notation (/32 for IPv4, /128 for IPv6).
+// Uses string notation (presence of ':') rather than To4() to correctly handle
+// IPv4-mapped IPv6 addresses (e.g., "::ffff:1.2.3.4").
 func NormalizeToCIDR(entry string) string {
 	if _, _, err := net.ParseCIDR(entry); err == nil {
 		return entry
 	}
 	if ip := net.ParseIP(entry); ip != nil {
-		if ip.To4() != nil {
+		if !strings.Contains(entry, ":") {
 			return entry + "/32"
 		}
 		return entry + "/128"

@@ -35,7 +35,7 @@ import (
 // when the owning Sandbox is deleted (including timeout-driven deletion by the controller).
 func sandboxOwnerRef(owner *agentsv1alpha1.Sandbox) metav1.OwnerReference {
 	controller := true
-	blockOwnerDeletion := true
+	blockOwnerDeletion := false
 	return metav1.OwnerReference{
 		APIVersion:         agentsv1alpha1.GroupVersion.String(),
 		Kind:               "Sandbox",
@@ -183,12 +183,18 @@ func (s *Sandbox) UpdateNetworkPolicy(ctx context.Context, netConfig infra.Sandb
 			}
 		}
 	} else if len(tpList.Items) > 0 {
-		// Update existing TrafficPolicy with new spec and ensure OwnerReference is set
+		// Update existing TrafficPolicy using merge patch to preserve external annotations.
 		existing := &tpList.Items[0]
+		base := existing.DeepCopy()
 		existing.Spec = newTP.Spec
 		existing.OwnerReferences = newTP.OwnerReferences
-		existing.Annotations = newTP.Annotations
-		if err := k8sClient.Update(ctx, existing); err != nil {
+		if existing.Annotations == nil {
+			existing.Annotations = map[string]string{}
+		}
+		for k, v := range newTP.Annotations {
+			existing.Annotations[k] = v
+		}
+		if err := k8sClient.Patch(ctx, existing, client.MergeFrom(base)); err != nil {
 			return fmt.Errorf("failed to update TrafficPolicy %s: %w", existing.Name, err)
 		}
 		log.Info("TrafficPolicy updated", "name", existing.Name)

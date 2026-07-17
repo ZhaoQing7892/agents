@@ -167,6 +167,8 @@ func TestNormalizeToCIDR(t *testing.T) {
 	}{
 		{name: "IPv4 bare address becomes /32", entry: "1.2.3.4", expect: "1.2.3.4/32"},
 		{name: "IPv6 bare address becomes /128", entry: "::1", expect: "::1/128"},
+		{name: "IPv4-mapped IPv6 becomes /128", entry: "::ffff:1.2.3.4", expect: "::ffff:1.2.3.4/128"},
+		{name: "IPv6 full form becomes /128", entry: "2001:db8::1", expect: "2001:db8::1/128"},
 		{name: "already CIDR v4 returned as-is", entry: "10.0.0.0/8", expect: "10.0.0.0/8"},
 		{name: "already CIDR v6 returned as-is", entry: "fe80::/64", expect: "fe80::/64"},
 		{name: "invalid string returned as-is", entry: "not-an-ip", expect: "not-an-ip"},

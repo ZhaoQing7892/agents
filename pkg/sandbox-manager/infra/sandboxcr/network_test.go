@@ -21,8 +21,10 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	agentsv1alpha1 "github.com/openkruise/agents/api/v1alpha1"
+	"github.com/openkruise/agents/pkg/cache"
 	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
 	"github.com/openkruise/agents/pkg/utils"
 	"github.com/openkruise/agents/pkg/utils/network"
@@ -485,4 +487,74 @@ func TestUpdateNetworkPolicy_CreateWhenNoExisting(t *testing.T) {
 			assert.ElementsMatch(t, tt.expectDenyOut, result.DenyOut)
 		})
 	}
+}
+
+// TestUpdateNetworkPolicy_PreservesExternalAnnotations verifies that
+// UpdateNetworkPolicy does not clobber annotations injected by other
+// controllers or webhooks (e.g., last-applied-configuration, cert-manager).
+func TestUpdateNetworkPolicy_PreservesExternalAnnotations(t *testing.T) {
+	infraInstance, fc := NewTestInfra(t)
+
+	sbx := createTestSandbox("network-annotation-sandbox", "test-user", agentsv1alpha1.SandboxRunning, true)
+	CreateSandboxWithStatus(t, fc, sbx)
+
+	var sandbox infra.Sandbox
+	require.Eventually(t, func() bool {
+		var err error
+		sandbox, err = infraInstance.GetSandbox(t.Context(), infra.GetSandboxOptions{
+			SandboxID: utils.GetSandboxID(sbx),
+			Namespace: sbx.Namespace,
+		})
+		return err == nil
+	}, time.Second, 10*time.Millisecond)
+
+	// Step 1: Create initial TrafficPolicy.
+	require.NoError(t, sandbox.CreateNetworkPolicy(t.Context(), infra.SandboxNetworkConfig{
+		AllowOut: []string{"1.2.3.4"},
+	}))
+
+	// Step 2: Simulate an external controller/webhook adding annotations.
+	sandboxID := utils.GetSandboxID(sbx)
+	tpList := &agentsv1alpha1.TrafficPolicyList{}
+	require.NoError(t, fc.List(t.Context(), tpList,
+		ctrlclient.InNamespace(sbx.Namespace),
+		ctrlclient.MatchingFields{cache.IndexTrafficPolicySandboxID: sandboxID},
+	))
+	require.Len(t, tpList.Items, 1)
+	tp := &tpList.Items[0]
+	tp.Annotations["cert-manager.io/certificate-name"] = "my-cert"
+	tp.Annotations["kubectl.kubernetes.io/last-applied-configuration"] = `{"kind":"TrafficPolicy"}`
+	require.NoError(t, fc.Update(t.Context(), tp))
+
+	// Step 3: Update network policy with new config.
+	require.NoError(t, sandbox.UpdateNetworkPolicy(t.Context(), infra.SandboxNetworkConfig{
+		AllowOut: []string{"1.2.3.4"},
+		DenyOut:  []string{"10.0.0.0/8"},
+	}))
+
+	// Step 4: Verify external annotations are preserved.
+	tpList = &agentsv1alpha1.TrafficPolicyList{}
+	require.NoError(t, fc.List(t.Context(), tpList,
+		ctrlclient.InNamespace(sbx.Namespace),
+		ctrlclient.MatchingFields{cache.IndexTrafficPolicySandboxID: sandboxID},
+	))
+	require.Len(t, tpList.Items, 1)
+	updated := &tpList.Items[0]
+
+	// External annotations must be preserved.
+	assert.Equal(t, "my-cert", updated.Annotations["cert-manager.io/certificate-name"],
+		"external annotation should be preserved after update")
+	assert.Contains(t, updated.Annotations, "kubectl.kubernetes.io/last-applied-configuration",
+		"last-applied-configuration annotation should be preserved after update")
+
+	// Sandbox ID annotation must still be present.
+	assert.Equal(t, sandboxID, updated.Annotations[agentsv1alpha1.AnnotationSandboxID],
+		"sandbox ID annotation should be present after update")
+
+	// Spec should be updated.
+	result, err := sandbox.SelectNetworkPolicy(t.Context())
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, []string{"1.2.3.4/32"}, result.AllowOut)
+	assert.ElementsMatch(t, []string{"10.0.0.0/8", network.AllTrafficCIDR, network.AllTrafficCIDRIPv6}, result.DenyOut)
 }
