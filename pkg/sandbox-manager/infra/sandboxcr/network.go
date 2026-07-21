@@ -53,15 +53,11 @@ func buildTrafficPolicy(allowOutCIDRs, allowOutDomains, denyOut []string, namesp
 		return nil
 	}
 
-	if len(allowOutDomains) > 0 && !network.ContainsCIDR(allowOutCIDRs, network.DNSServerCIDR) {
-		allowOutCIDRs = append(allowOutCIDRs, network.DNSServerCIDR)
-	}
-
 	hasAllowOut := len(allowOutCIDRs) > 0 || len(allowOutDomains) > 0
-	rules := make([]agentsv1alpha1.TrafficPolicyRule, 0, 3)
+	rules := make([]agentsv1alpha1.TrafficPolicyRule, 0, 2)
 
 	if hasAllowOut {
-		// Whitelist mode: allow CIDR/IP and FQDN entries, explicit deny, then default deny
+		// Whitelist mode: allow CIDR/IP and FQDN entries, then explicit deny
 		allowPeers := make([]agentsv1alpha1.TrafficPolicyPeer, 0, len(allowOutCIDRs)+len(allowOutDomains))
 		for _, cidr := range allowOutCIDRs {
 			allowPeers = append(allowPeers, agentsv1alpha1.TrafficPolicyPeer{CIDR: cidr})
@@ -82,15 +78,6 @@ func buildTrafficPolicy(allowOutCIDRs, allowOutDomains, denyOut []string, namesp
 			rules = append(rules, agentsv1alpha1.TrafficPolicyRule{
 				Action: agentsv1alpha1.RuleActionReject,
 				To:     denyPeers,
-			})
-		}
-		if !network.ContainsAllTrafficCIDR(allowOutCIDRs) && !network.ContainsAllTrafficCIDR(denyOut) {
-			rules = append(rules, agentsv1alpha1.TrafficPolicyRule{
-				Action: agentsv1alpha1.RuleActionReject,
-				To: []agentsv1alpha1.TrafficPolicyPeer{
-					{CIDR: network.AllTrafficCIDR},
-					{CIDR: network.AllTrafficCIDRIPv6},
-				},
 			})
 		}
 	} else {

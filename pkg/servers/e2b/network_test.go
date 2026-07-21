@@ -233,111 +233,30 @@ func TestValidateAllowOut(t *testing.T) {
 
 func TestValidateAndBuildNetworkConfig_DenyOutDomainError(t *testing.T) {
 	// Validation is centralized in validateAndBuildNetworkConfig.
-	_, err := validateAndBuildNetworkConfig(nil, &models.SandboxNetworkConfig{
+	_, err := validateAndBuildNetworkConfig(&models.SandboxNetworkConfig{
 		DenyOut: []string{"example.com"},
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "domains are not supported in denyOut")
 }
 
-func TestApplyAllowInternetAccess(t *testing.T) {
-	falseVal := false
-	trueVal := true
-
-	tests := []struct {
-		name                string
-		allowInternetAccess *bool
-		denyOut             []string
-		wantDenyOut         []string
-	}{
-		{
-			name:                "nil pointer: no change",
-			allowInternetAccess: nil,
-			denyOut:             []string{"10.0.0.0/8"},
-			wantDenyOut:         []string{"10.0.0.0/8"},
-		},
-		{
-			name:                "true: no change",
-			allowInternetAccess: &trueVal,
-			denyOut:             []string{"10.0.0.0/8"},
-			wantDenyOut:         []string{"10.0.0.0/8"},
-		},
-		{
-			name:                "false: adds 0.0.0.0/0 and ::/0",
-			allowInternetAccess: &falseVal,
-			denyOut:             []string{"10.0.0.0/8"},
-			wantDenyOut:         []string{"10.0.0.0/8", "0.0.0.0/0", "::/0"},
-		},
-		{
-			name:                "false with empty denyOut: adds 0.0.0.0/0 and ::/0",
-			allowInternetAccess: &falseVal,
-			denyOut:             nil,
-			wantDenyOut:         []string{"0.0.0.0/0", "::/0"},
-		},
-		{
-			name:                "false with existing 0.0.0.0/0: adds ::/0",
-			allowInternetAccess: &falseVal,
-			denyOut:             []string{"0.0.0.0/0"},
-			wantDenyOut:         []string{"0.0.0.0/0", "::/0"},
-		},
-		{
-			name:                "false with existing ::/0: adds 0.0.0.0/0",
-			allowInternetAccess: &falseVal,
-			denyOut:             []string{"::/0"},
-			wantDenyOut:         []string{"::/0", "0.0.0.0/0"},
-		},
-		{
-			name:                "false with existing both: not duplicated",
-			allowInternetAccess: &falseVal,
-			denyOut:             []string{"0.0.0.0/0", "::/0"},
-			wantDenyOut:         []string{"0.0.0.0/0", "::/0"},
-		},
-		{
-			name:                "false with existing 0.0.0.0/0 among others: adds ::/0",
-			allowInternetAccess: &falseVal,
-			denyOut:             []string{"10.0.0.0/8", "0.0.0.0/0", "8.8.8.8"},
-			wantDenyOut:         []string{"10.0.0.0/8", "0.0.0.0/0", "8.8.8.8", "::/0"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := applyAllowInternetAccess(tt.allowInternetAccess, tt.denyOut)
-			assert.Equal(t, tt.wantDenyOut, got)
-		})
-	}
-}
-
 func TestValidateAndBuildNetworkConfig(t *testing.T) {
-	falseVal := false
-	trueVal := true
-
 	tests := []struct {
-		name                string
-		allowInternetAccess *bool
-		network             *models.SandboxNetworkConfig
-		wantNil             bool
-		wantAllow           []string
-		wantDeny            []string
-		expectError         string
+		name        string
+		network     *models.SandboxNetworkConfig
+		wantNil     bool
+		wantAllow   []string
+		wantDeny    []string
+		expectError string
 	}{
 		{
-			name:                "nil allowInternetAccess, nil network: returns nil",
-			allowInternetAccess: nil,
-			network:             nil,
-			wantNil:             true,
-			expectError:         "",
+			name:        "nil network: returns nil",
+			network:     nil,
+			wantNil:     true,
+			expectError: "",
 		},
 		{
-			name:                "true allowInternetAccess, nil network: returns nil",
-			allowInternetAccess: &trueVal,
-			network:             nil,
-			wantNil:             true,
-			expectError:         "",
-		},
-		{
-			name:                "nil allowInternetAccess, network with allowOut: returns as-is",
-			allowInternetAccess: nil,
+			name: "network with allowOut: returns as-is",
 			network: &models.SandboxNetworkConfig{
 				AllowOut: []string{"10.0.0.0/8"},
 			},
@@ -347,8 +266,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "",
 		},
 		{
-			name:                "nil allowInternetAccess, network with denyOut: returns as-is",
-			allowInternetAccess: nil,
+			name: "network with denyOut: returns as-is",
 			network: &models.SandboxNetworkConfig{
 				DenyOut: []string{"10.0.0.0/8"},
 			},
@@ -358,38 +276,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "",
 		},
 		{
-			name:                "false allowInternetAccess, nil network: creates config with 0.0.0.0/0 and ::/0",
-			allowInternetAccess: &falseVal,
-			network:             nil,
-			wantNil:             false,
-			wantDeny:            []string{"0.0.0.0/0", "::/0"},
-			expectError:         "",
-		},
-		{
-			name:                "false allowInternetAccess, network with allowOut: merges 0.0.0.0/0 and ::/0 into denyOut",
-			allowInternetAccess: &falseVal,
-			network: &models.SandboxNetworkConfig{
-				AllowOut: []string{"10.0.0.0/8"},
-				DenyOut:  []string{"8.8.4.4"},
-			},
-			wantNil:     false,
-			wantAllow:   []string{"10.0.0.0/8"},
-			wantDeny:    []string{"8.8.4.4", "0.0.0.0/0", "::/0"},
-			expectError: "",
-		},
-		{
-			name:                "false allowInternetAccess, network with existing 0.0.0.0/0: adds ::/0",
-			allowInternetAccess: &falseVal,
-			network: &models.SandboxNetworkConfig{
-				DenyOut: []string{"0.0.0.0/0"},
-			},
-			wantNil:     false,
-			wantDeny:    []string{"0.0.0.0/0", "::/0"},
-			expectError: "",
-		},
-		{
-			name:                "domain in denyOut rejected",
-			allowInternetAccess: nil,
+			name: "domain in denyOut rejected",
 			network: &models.SandboxNetworkConfig{
 				DenyOut: []string{"example.com"},
 			},
@@ -397,8 +284,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "domains are not supported in denyOut",
 		},
 		{
-			name:                "wildcard domain in denyOut rejected",
-			allowInternetAccess: nil,
+			name: "wildcard domain in denyOut rejected",
 			network: &models.SandboxNetworkConfig{
 				DenyOut: []string{"*.evil.com"},
 			},
@@ -406,17 +292,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "domains are not supported in denyOut",
 		},
 		{
-			name:                "false allowInternetAccess, domain in denyOut rejected",
-			allowInternetAccess: &falseVal,
-			network: &models.SandboxNetworkConfig{
-				DenyOut: []string{"bad.com"},
-			},
-			wantNil:     true,
-			expectError: "domains are not supported in denyOut",
-		},
-		{
-			name:                "empty allowOut and denyOut with nil allowInternetAccess: returns nil",
-			allowInternetAccess: nil,
+			name: "empty allowOut and denyOut: returns nil",
 			network: &models.SandboxNetworkConfig{
 				AllowOut: []string{},
 				DenyOut:  []string{},
@@ -425,8 +301,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "",
 		},
 		{
-			name:                "mixed allowOut (bare IP + domain) and mixed denyOut (CIDR + bare IP): valid",
-			allowInternetAccess: nil,
+			name: "mixed allowOut (bare IP + domain) and mixed denyOut (CIDR + bare IP): valid",
 			network: &models.SandboxNetworkConfig{
 				AllowOut: []string{"1.2.3.4", "api.example.com"},
 				DenyOut:  []string{"10.0.0.0/8", "8.8.8.8"},
@@ -437,8 +312,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "",
 		},
 		{
-			name:                "wildcard domain in allowOut rejected",
-			allowInternetAccess: nil,
+			name: "wildcard domain in allowOut rejected",
 			network: &models.SandboxNetworkConfig{
 				AllowOut: []string{"192.168.1.0/24", "*.openai.com"},
 				DenyOut:  []string{"172.16.0.0/12", "1.1.1.1"},
@@ -447,8 +321,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "wildcard domains are not supported",
 		},
 		{
-			name:                "mixed allowOut (CIDR + domain) and mixed denyOut (CIDR + bare IP): valid",
-			allowInternetAccess: nil,
+			name: "mixed allowOut (CIDR + domain) and mixed denyOut (CIDR + bare IP): valid",
 			network: &models.SandboxNetworkConfig{
 				AllowOut: []string{"192.168.1.0/24", "api.openai.com"},
 				DenyOut:  []string{"172.16.0.0/12", "1.1.1.1"},
@@ -459,8 +332,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "",
 		},
 		{
-			name:                "mixed allowOut (IP + domain) and denyOut with domain: rejected",
-			allowInternetAccess: nil,
+			name: "mixed allowOut (IP + domain) and denyOut with domain: rejected",
 			network: &models.SandboxNetworkConfig{
 				AllowOut: []string{"1.2.3.4", "api.example.com"},
 				DenyOut:  []string{"10.0.0.0/8", "evil.com"},
@@ -469,8 +341,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "domains are not supported in denyOut",
 		},
 		{
-			name:                "invalid allowOut entry rejected",
-			allowInternetAccess: nil,
+			name: "invalid allowOut entry rejected",
 			network: &models.SandboxNetworkConfig{
 				AllowOut: []string{">>>invalid"},
 			},
@@ -478,8 +349,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "invalid allowOut entry",
 		},
 		{
-			name:                "single label in allowOut rejected",
-			allowInternetAccess: nil,
+			name: "single label in allowOut rejected",
 			network: &models.SandboxNetworkConfig{
 				AllowOut: []string{"localhost"},
 			},
@@ -487,8 +357,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "invalid allowOut entry",
 		},
 		{
-			name:                "invalid allowOut mixed with valid CIDR rejected",
-			allowInternetAccess: nil,
+			name: "invalid allowOut mixed with valid CIDR rejected",
 			network: &models.SandboxNetworkConfig{
 				AllowOut: []string{"10.0.0.0/8", ">>>bad"},
 				DenyOut:  []string{"8.8.8.8"},
@@ -497,8 +366,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "invalid allowOut entry",
 		},
 		{
-			name:                "allowOut exceeds max entries",
-			allowInternetAccess: nil,
+			name: "allowOut exceeds max entries",
 			network: &models.SandboxNetworkConfig{
 				AllowOut: generateCIDREntries(maxNetworkEntriesPerList + 1),
 			},
@@ -506,8 +374,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 			expectError: "allowOut list exceeds maximum",
 		},
 		{
-			name:                "denyOut exceeds max entries",
-			allowInternetAccess: nil,
+			name: "denyOut exceeds max entries",
 			network: &models.SandboxNetworkConfig{
 				DenyOut: generateCIDREntries(maxNetworkEntriesPerList + 1),
 			},
@@ -518,7 +385,7 @@ func TestValidateAndBuildNetworkConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := validateAndBuildNetworkConfig(tt.allowInternetAccess, tt.network)
+			got, err := validateAndBuildNetworkConfig(tt.network)
 			if tt.expectError != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectError)
@@ -689,12 +556,12 @@ func TestUpdateSandboxNetwork_Success(t *testing.T) {
 			expectTP:   true,
 		},
 		{
-			name: "update with allowInternetAccess false creates TP",
+			name: "update with allowInternetAccess false does not create TP",
 			req: models.SandboxNetworkUpdateConfig{
 				AllowInternetAccess: ptr.To(false),
 			},
 			expectCode: http.StatusNoContent,
-			expectTP:   true,
+			expectTP:   false,
 		},
 		{
 			name: "update with FQDN in allowOut creates TP",

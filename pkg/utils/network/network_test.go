@@ -24,8 +24,8 @@ import (
 
 func TestIsCIDROrIP(t *testing.T) {
 	tests := []struct {
-		name  string
-		entry string
+		name   string
+		entry  string
 		expect bool
 	}{
 		{name: "IPv4 bare address", entry: "1.2.3.4", expect: true},
@@ -41,47 +41,6 @@ func TestIsCIDROrIP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expect, IsCIDROrIP(tt.entry))
-		})
-	}
-}
-
-func TestContainsCIDR(t *testing.T) {
-	tests := []struct {
-		name   string
-		cidrs  []string
-		target string
-		expect bool
-	}{
-		{name: "contains target", cidrs: []string{"1.2.3.4/32", "8.8.8.8/32"}, target: "8.8.8.8/32", expect: true},
-		{name: "does not contain target", cidrs: []string{"1.2.3.4/32", "10.0.0.0/8"}, target: "8.8.8.8/32", expect: false},
-		{name: "empty list", cidrs: nil, target: "8.8.8.8/32", expect: false},
-		{name: "single element match", cidrs: []string{"8.8.8.8/32"}, target: "8.8.8.8/32", expect: true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expect, ContainsCIDR(tt.cidrs, tt.target))
-		})
-	}
-}
-
-func TestContainsAllTrafficCIDR(t *testing.T) {
-	tests := []struct {
-		name   string
-		cidrs  []string
-		expect bool
-	}{
-		{name: "contains 0.0.0.0/0", cidrs: []string{"0.0.0.0/0"}, expect: true},
-		{name: "contains ::/0", cidrs: []string{"::/0"}, expect: true},
-		{name: "contains 0.0.0.0/0 among others", cidrs: []string{"1.2.3.4/32", "0.0.0.0/0"}, expect: true},
-		{name: "does not contain all-traffic CIDR", cidrs: []string{"1.2.3.4/32", "10.0.0.0/8"}, expect: false},
-		{name: "empty list", cidrs: nil, expect: false},
-		{name: "nil list", cidrs: []string{}, expect: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expect, ContainsAllTrafficCIDR(tt.cidrs))
 		})
 	}
 }

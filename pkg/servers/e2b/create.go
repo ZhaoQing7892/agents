@@ -385,7 +385,7 @@ func (sc *Controller) parseCreateSandboxRequest(r *http.Request) (models.NewSand
 	}
 
 	// Validate and build network config.
-	networkConfig, err := validateAndBuildNetworkConfig(request.AllowInternetAccess, request.Network)
+	networkConfig, err := validateAndBuildNetworkConfig(request.Network)
 	if err != nil {
 		return request, &web.ApiError{
 			Code:    http.StatusBadRequest,
@@ -433,6 +433,15 @@ func (sc *Controller) basicSandboxCreateModifier(ctx context.Context, sbx infra.
 	for k, v := range request.Extensions.Labels {
 		labels[k] = v
 	}
+
+	// Inject allow-internet-access label. Default is "true"; when network config
+	// is provided and allowInternetAccess is explicitly false, set to "false".
+	// GlobalTrafficPolicy selects pods by this label to enforce egress rules.
+	allowInternetAccess := agentsv1alpha1.True
+	if request.AllowInternetAccess != nil && !*request.AllowInternetAccess {
+		allowInternetAccess = agentsv1alpha1.False
+	}
+	labels[agentsv1alpha1.LabelAllowInternetAccess] = allowInternetAccess
 	sbx.SetLabels(labels)
 
 	podLabels := make(map[string]string)
@@ -441,6 +450,8 @@ func (sc *Controller) basicSandboxCreateModifier(ctx context.Context, sbx infra.
 	}
 	// Inject the sandbox-name label onto the pod
 	podLabels[agentsv1alpha1.LabelSandboxName] = sbx.GetName()
+	// Propagate allow-internet-access label to the pod as well.
+	podLabels[agentsv1alpha1.LabelAllowInternetAccess] = allowInternetAccess
 
 	// Propagate request labels to the pod template metadata. This ensures the
 	// sandbox hash includes the labels, and the controller patches the pod metadata

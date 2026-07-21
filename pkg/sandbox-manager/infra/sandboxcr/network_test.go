@@ -27,7 +27,6 @@ import (
 	"github.com/openkruise/agents/pkg/cache"
 	"github.com/openkruise/agents/pkg/sandbox-manager/infra"
 	"github.com/openkruise/agents/pkg/utils"
-	"github.com/openkruise/agents/pkg/utils/network"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,77 +50,72 @@ func TestBuildTrafficPolicy(t *testing.T) {
 		fqdnChecks [][]string
 	}{
 		{
-			name:            "whitelist CIDR only — allow + default deny",
+			name:            "whitelist CIDR only — allow only",
 			allowOutCIDRs:   []string{"1.2.3.4/32"},
 			allowOutDomains: nil,
 			denyOut:         nil,
 			expectNil:       false,
-			expectRuleCount: 2,
-			ruleChecks:      []agentsv1alpha1.RuleAction{agentsv1alpha1.RuleActionAllow, agentsv1alpha1.RuleActionReject},
-			peerChecks:      [][]string{{"1.2.3.4/32"}, {network.AllTrafficCIDR, network.AllTrafficCIDRIPv6}},
-			fqdnChecks:      [][]string{nil, nil},
+			expectRuleCount: 1,
+			ruleChecks:      []agentsv1alpha1.RuleAction{agentsv1alpha1.RuleActionAllow},
+			peerChecks:      [][]string{{"1.2.3.4/32"}},
+			fqdnChecks:      [][]string{nil},
 		},
 		{
-			name:            "whitelist + denyOut — allow + explicit deny + default deny",
+			name:            "whitelist + denyOut — allow + explicit deny",
 			allowOutCIDRs:   []string{"1.2.3.4/32"},
 			allowOutDomains: nil,
 			denyOut:         []string{"10.0.0.0/8", "172.16.0.0/12"},
 			expectNil:       false,
-			expectRuleCount: 3,
+			expectRuleCount: 2,
 			ruleChecks: []agentsv1alpha1.RuleAction{
 				agentsv1alpha1.RuleActionAllow,
-				agentsv1alpha1.RuleActionReject,
 				agentsv1alpha1.RuleActionReject,
 			},
 			peerChecks: [][]string{
 				{"1.2.3.4/32"},
 				{"10.0.0.0/8", "172.16.0.0/12"},
-				{network.AllTrafficCIDR, network.AllTrafficCIDRIPv6},
 			},
-			fqdnChecks: [][]string{nil, nil, nil},
+			fqdnChecks: [][]string{nil, nil},
 		},
 		{
-			name:            "whitelist FQDN only — auto-inject DNS CIDR + default deny",
+			name:            "whitelist FQDN only — allow FQDN",
 			allowOutCIDRs:   nil,
 			allowOutDomains: []string{"api.example.com"},
 			denyOut:         nil,
 			expectNil:       false,
-			expectRuleCount: 2,
-			ruleChecks:      []agentsv1alpha1.RuleAction{agentsv1alpha1.RuleActionAllow, agentsv1alpha1.RuleActionReject},
-			peerChecks:      [][]string{{network.DNSServerCIDR}, {network.AllTrafficCIDR, network.AllTrafficCIDRIPv6}},
-			fqdnChecks:      [][]string{{"api.example.com"}, nil},
+			expectRuleCount: 1,
+			ruleChecks:      []agentsv1alpha1.RuleAction{agentsv1alpha1.RuleActionAllow},
+			peerChecks:      [][]string{nil},
+			fqdnChecks:      [][]string{{"api.example.com"}},
 		},
 		{
-			name:            "whitelist FQDN with explicit DNS CIDR — no duplicate",
+			name:            "whitelist FQDN with explicit DNS CIDR",
 			allowOutCIDRs:   []string{"8.8.8.8/32"},
 			allowOutDomains: []string{"api.example.com"},
 			denyOut:         nil,
 			expectNil:       false,
-			expectRuleCount: 2,
-			ruleChecks:      []agentsv1alpha1.RuleAction{agentsv1alpha1.RuleActionAllow, agentsv1alpha1.RuleActionReject},
-			peerChecks:      [][]string{{"8.8.8.8/32"}, {network.AllTrafficCIDR, network.AllTrafficCIDRIPv6}},
-			fqdnChecks:      [][]string{{"api.example.com"}, nil},
+			expectRuleCount: 1,
+			ruleChecks:      []agentsv1alpha1.RuleAction{agentsv1alpha1.RuleActionAllow},
+			peerChecks:      [][]string{{"8.8.8.8/32"}},
+			fqdnChecks:      [][]string{{"api.example.com"}},
 		},
 		{
-			name:            "whitelist CIDR + FQDN + denyOut — allow (mixed peers) + explicit deny + default deny",
+			name:            "whitelist CIDR + FQDN + denyOut — allow (mixed peers) + explicit deny",
 			allowOutCIDRs:   []string{"1.2.3.4/32"},
 			allowOutDomains: []string{"api.example.com"},
 			denyOut:         []string{"10.0.0.0/8"},
 			expectNil:       false,
-			expectRuleCount: 3,
+			expectRuleCount: 2,
 			ruleChecks: []agentsv1alpha1.RuleAction{
 				agentsv1alpha1.RuleActionAllow,
 				agentsv1alpha1.RuleActionReject,
-				agentsv1alpha1.RuleActionReject,
 			},
 			peerChecks: [][]string{
-				{"1.2.3.4/32", network.DNSServerCIDR},
+				{"1.2.3.4/32"},
 				{"10.0.0.0/8"},
-				{network.AllTrafficCIDR, network.AllTrafficCIDRIPv6},
 			},
 			fqdnChecks: [][]string{
 				{"api.example.com"},
-				nil,
 				nil,
 			},
 		},
@@ -150,18 +144,16 @@ func TestBuildTrafficPolicy(t *testing.T) {
 			allowOutDomains: nil,
 			denyOut:         []string{"8.8.4.4"},
 			expectNil:       false,
-			expectRuleCount: 3,
+			expectRuleCount: 2,
 			ruleChecks: []agentsv1alpha1.RuleAction{
 				agentsv1alpha1.RuleActionAllow,
-				agentsv1alpha1.RuleActionReject,
 				agentsv1alpha1.RuleActionReject,
 			},
 			peerChecks: [][]string{
 				{"8.8.8.8/32"},
 				{"8.8.4.4/32"},
-				{network.AllTrafficCIDR, network.AllTrafficCIDRIPv6},
 			},
-			fqdnChecks: [][]string{nil, nil, nil},
+			fqdnChecks: [][]string{nil, nil},
 		},
 		{
 			name:            "allowOut contains 0.0.0.0/0 — no default deny",
@@ -193,13 +185,13 @@ func TestBuildTrafficPolicy(t *testing.T) {
 		},
 		{
 			name:            "allowOut contains ::/0 (IPv6 all-traffic) — no default deny",
-			allowOutCIDRs:   []string{network.AllTrafficCIDRIPv6},
+			allowOutCIDRs:   []string{"::/0"},
 			allowOutDomains: nil,
 			denyOut:         nil,
 			expectNil:       false,
 			expectRuleCount: 1,
 			ruleChecks:      []agentsv1alpha1.RuleAction{agentsv1alpha1.RuleActionAllow},
-			peerChecks:      [][]string{{network.AllTrafficCIDRIPv6}},
+			peerChecks:      [][]string{{"::/0"}},
 			fqdnChecks:      [][]string{nil},
 		},
 	}
@@ -255,9 +247,9 @@ func TestBuildTrafficPolicy(t *testing.T) {
 
 // TestCreateSelectNetworkPolicy_RoundTrip verifies that network config
 // written via CreateNetworkPolicy can be fully read back via
-// SelectNetworkPolicy. The read-back returns the complete TrafficPolicy
-// configuration including auto-injected entries (DNS CIDR, default-deny).
-// Round-trip safety is guaranteed by buildTrafficPolicy's deduplication guards.
+// SelectNetworkPolicy. The read-back returns the explicit TrafficPolicy
+// configuration (no auto-injected entries).
+// Round-trip safety is guaranteed by buildTrafficPolicy's faithful encoding.
 func TestCreateSelectNetworkPolicy_RoundTrip(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -271,8 +263,8 @@ func TestCreateSelectNetworkPolicy_RoundTrip(t *testing.T) {
 				AllowOut: []string{"1.2.3.4", "api.example.com"},
 				DenyOut:  []string{"10.0.0.0/8", "172.16.0.0/12"},
 			},
-			expectAllowOut: []string{"1.2.3.4/32", network.DNSServerCIDR, "api.example.com"},
-			expectDenyOut:  []string{"10.0.0.0/8", "172.16.0.0/12", network.AllTrafficCIDR, network.AllTrafficCIDRIPv6},
+			expectAllowOut: []string{"1.2.3.4/32", "api.example.com"},
+			expectDenyOut:  []string{"10.0.0.0/8", "172.16.0.0/12"},
 		},
 		{
 			name: "whitelist only round-trip",
@@ -280,7 +272,7 @@ func TestCreateSelectNetworkPolicy_RoundTrip(t *testing.T) {
 				AllowOut: []string{"1.2.3.4"},
 			},
 			expectAllowOut: []string{"1.2.3.4/32"},
-			expectDenyOut:  []string{network.AllTrafficCIDR, network.AllTrafficCIDRIPv6},
+			expectDenyOut:  nil,
 		},
 		{
 			name: "blacklist only round-trip",
@@ -297,15 +289,15 @@ func TestCreateSelectNetworkPolicy_RoundTrip(t *testing.T) {
 				DenyOut:  []string{"8.8.4.4"},
 			},
 			expectAllowOut: []string{"1.1.1.1/32"},
-			expectDenyOut:  []string{"8.8.4.4/32", network.AllTrafficCIDR, network.AllTrafficCIDRIPv6},
+			expectDenyOut:  []string{"8.8.4.4/32"},
 		},
 		{
 			name: "FQDN only round-trip preserves domains",
 			network: infra.SandboxNetworkConfig{
 				AllowOut: []string{"api.example.com"},
 			},
-			expectAllowOut: []string{network.DNSServerCIDR, "api.example.com"},
-			expectDenyOut:  []string{network.AllTrafficCIDR, network.AllTrafficCIDRIPv6},
+			expectAllowOut: []string{"api.example.com"},
+			expectDenyOut:  nil,
 		},
 		{
 			name: "mixed CIDR + FQDN + denyOut round-trip",
@@ -313,8 +305,8 @@ func TestCreateSelectNetworkPolicy_RoundTrip(t *testing.T) {
 				AllowOut: []string{"1.2.3.4", "api.example.com"},
 				DenyOut:  []string{"10.0.0.0/8"},
 			},
-			expectAllowOut: []string{"1.2.3.4/32", network.DNSServerCIDR, "api.example.com"},
-			expectDenyOut:  []string{"10.0.0.0/8", network.AllTrafficCIDR, network.AllTrafficCIDRIPv6},
+			expectAllowOut: []string{"1.2.3.4/32", "api.example.com"},
+			expectDenyOut:  []string{"10.0.0.0/8"},
 		},
 		{
 			name: "allowOut 0.0.0.0/0 round-trip preserves allow-all",
@@ -385,7 +377,7 @@ func TestUpdateSelectNetworkPolicy_RoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Equal(t, []string{"1.2.3.4/32"}, result.AllowOut)
-	assert.Equal(t, []string{network.AllTrafficCIDR, network.AllTrafficCIDRIPv6}, result.DenyOut)
+	assert.Nil(t, result.DenyOut)
 
 	// Step 2: Update to allowOut + denyOut (whitelist mode with deny)
 	require.NoError(t, sandbox.UpdateNetworkPolicy(t.Context(), infra.SandboxNetworkConfig{
@@ -397,7 +389,7 @@ func TestUpdateSelectNetworkPolicy_RoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Equal(t, []string{"1.2.3.4/32"}, result.AllowOut)
-	assert.ElementsMatch(t, []string{"10.0.0.0/8", network.AllTrafficCIDR, network.AllTrafficCIDRIPv6}, result.DenyOut)
+	assert.ElementsMatch(t, []string{"10.0.0.0/8"}, result.DenyOut)
 
 	// Step 3: Update to add FQDN entries
 	require.NoError(t, sandbox.UpdateNetworkPolicy(t.Context(), infra.SandboxNetworkConfig{
@@ -408,8 +400,8 @@ func TestUpdateSelectNetworkPolicy_RoundTrip(t *testing.T) {
 	result, err = sandbox.SelectNetworkPolicy(t.Context())
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.ElementsMatch(t, []string{"1.2.3.4/32", network.DNSServerCIDR, "api.example.com"}, result.AllowOut)
-	assert.ElementsMatch(t, []string{"10.0.0.0/8", network.AllTrafficCIDR, network.AllTrafficCIDRIPv6}, result.DenyOut)
+	assert.ElementsMatch(t, []string{"1.2.3.4/32", "api.example.com"}, result.AllowOut)
+	assert.ElementsMatch(t, []string{"10.0.0.0/8"}, result.DenyOut)
 
 	// Step 4: Update to clear all (empty config)
 	require.NoError(t, sandbox.UpdateNetworkPolicy(t.Context(), infra.SandboxNetworkConfig{}))
@@ -437,7 +429,7 @@ func TestUpdateNetworkPolicy_CreateWhenNoExisting(t *testing.T) {
 				DenyOut:  []string{"10.0.0.0/8"},
 			},
 			expectAllowOut: []string{"1.2.3.4/32"},
-			expectDenyOut:  []string{"10.0.0.0/8", network.AllTrafficCIDR, network.AllTrafficCIDRIPv6},
+			expectDenyOut:  []string{"10.0.0.0/8"},
 		},
 		{
 			name: "blacklist mode creates new TP",
@@ -452,8 +444,8 @@ func TestUpdateNetworkPolicy_CreateWhenNoExisting(t *testing.T) {
 			network: infra.SandboxNetworkConfig{
 				AllowOut: []string{"api.example.com"},
 			},
-			expectAllowOut: []string{network.DNSServerCIDR, "api.example.com"},
-			expectDenyOut:  []string{network.AllTrafficCIDR, network.AllTrafficCIDRIPv6},
+			expectAllowOut: []string{"api.example.com"},
+			expectDenyOut:  nil,
 		},
 	}
 
@@ -556,5 +548,5 @@ func TestUpdateNetworkPolicy_PreservesExternalAnnotations(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Equal(t, []string{"1.2.3.4/32"}, result.AllowOut)
-	assert.ElementsMatch(t, []string{"10.0.0.0/8", network.AllTrafficCIDR, network.AllTrafficCIDRIPv6}, result.DenyOut)
+	assert.ElementsMatch(t, []string{"10.0.0.0/8"}, result.DenyOut)
 }

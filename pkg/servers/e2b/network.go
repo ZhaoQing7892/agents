@@ -64,49 +64,20 @@ func validateDenyOut(denyOut []string) error {
 	return nil
 }
 
-// applyAllowInternetAccess merges the allowInternetAccess flag into denyOut.
-// When internet access is disabled, both IPv4 (0.0.0.0/0) and IPv6 (::/0) ranges are added to the deny list.
-func applyAllowInternetAccess(allowInternetAccess *bool, denyOut []string) []string {
-	if allowInternetAccess == nil || *allowInternetAccess {
-		return denyOut
-	}
-	hasIPv4 := network.ContainsCIDR(denyOut, network.AllTrafficCIDR)
-	hasIPv6 := network.ContainsCIDR(denyOut, network.AllTrafficCIDRIPv6)
-	if hasIPv4 && hasIPv6 {
-		return denyOut
-	}
-	result := denyOut
-	if !hasIPv4 {
-		result = append(result, network.AllTrafficCIDR)
-	}
-	if !hasIPv6 {
-		result = append(result, network.AllTrafficCIDRIPv6)
-	}
-	return result
-}
-
 // validateAndBuildNetworkConfig is the single entry point for validating raw
 // network parameters and producing a normalized SandboxNetworkConfig ready for CR creation.
-func validateAndBuildNetworkConfig(allowInternetAccess *bool, netConfig *models.SandboxNetworkConfig) (*models.SandboxNetworkConfig, error) {
-	// Step 1: Merge allowInternetAccess: false → denyOut: ["0.0.0.0/0", "::/0"]
-	if allowInternetAccess != nil && !*allowInternetAccess {
-		if netConfig == nil {
-			netConfig = &models.SandboxNetworkConfig{}
-		}
-		netConfig.DenyOut = applyAllowInternetAccess(allowInternetAccess, netConfig.DenyOut)
-	}
-
-	// Step 2: Return nil if no network rules are needed
+func validateAndBuildNetworkConfig(netConfig *models.SandboxNetworkConfig) (*models.SandboxNetworkConfig, error) {
+	// Step 1: Return nil if no network rules are needed
 	if netConfig == nil || (len(netConfig.AllowOut) == 0 && len(netConfig.DenyOut) == 0) {
 		return nil, nil
 	}
 
-	// Step 3: Validate allowOut — entries must be CIDR, IP, or FQDN
+	// Step 1: Validate allowOut — entries must be CIDR, IP, or FQDN
 	if err := validateAllowOut(netConfig.AllowOut); err != nil {
 		return nil, err
 	}
 
-	// Step 4: Validate denyOut — domains are not supported in deny lists
+	// Step 2: Validate denyOut — domains are not supported in deny lists
 	if err := validateDenyOut(netConfig.DenyOut); err != nil {
 		return nil, err
 	}
@@ -129,7 +100,7 @@ func (sc *Controller) UpdateSandboxNetwork(r *http.Request) (web.ApiResponse[str
 	}
 
 	// Validate and build the network config in one step.
-	netConfig, err := validateAndBuildNetworkConfig(req.AllowInternetAccess, &models.SandboxNetworkConfig{
+	netConfig, err := validateAndBuildNetworkConfig(&models.SandboxNetworkConfig{
 		AllowOut: req.AllowOut,
 		DenyOut:  req.DenyOut,
 	})

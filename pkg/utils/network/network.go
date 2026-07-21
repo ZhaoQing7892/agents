@@ -24,47 +24,12 @@ import (
 	"strings"
 )
 
-// AllTrafficCIDR represents all IPv4 addresses (0.0.0.0/0). It is used both
-// as the default deny rule in TrafficPolicy whitelist mode and as the
-// deny-all entry when allowInternetAccess is false.
-const AllTrafficCIDR = "0.0.0.0/0"
-
-// AllTrafficCIDRIPv6 represents all IPv6 addresses (::/0). It is used alongside
-// AllTrafficCIDR to block all traffic on dual-stack clusters.
-const AllTrafficCIDRIPv6 = "::/0"
-
-// DNSServerCIDR is the default DNS server CIDR that is automatically allowed
-// when allowOut contains domain entries, to ensure DNS resolution works under
-// default-deny.
-// See: https://e2b.dev/docs/network/internet-access
-const DNSServerCIDR = "8.8.8.8/32"
-
 // IsCIDROrIP returns true if the entry is a valid CIDR or bare IP address.
 func IsCIDROrIP(entry string) bool {
 	if _, _, err := net.ParseCIDR(entry); err == nil {
 		return true
 	}
 	return net.ParseIP(entry) != nil
-}
-
-// ContainsCIDR returns true if the CIDR list contains the target CIDR.
-func ContainsCIDR(cidrs []string, target string) bool {
-	for _, cidr := range cidrs {
-		if cidr == target {
-			return true
-		}
-	}
-	return false
-}
-
-// ContainsAllTrafficCIDR returns true if the CIDR list contains 0.0.0.0/0 or ::/0.
-func ContainsAllTrafficCIDR(cidrs []string) bool {
-	for _, cidr := range cidrs {
-		if cidr == AllTrafficCIDR || cidr == AllTrafficCIDRIPv6 {
-			return true
-		}
-	}
-	return false
 }
 
 // fqdnRegex matches FQDNs. Wildcards are not supported: the traffic-extension
